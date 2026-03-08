@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./welfare_support.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./g_ranche.db")
 
 # SQLite needs check_same_thread=False for multi-threaded use
 connect_args = {}

@@ -1,6 +1,6 @@
-# 相談支援事業所 管理システム
+# ぐ・らんちぇ 管理システム
 
-障害福祉の計画相談支援事業所向け業務管理Webアプリ。
+ぐ・らんちぇ（相談支援事業所）の業務管理Webアプリ。
 
 ## 起動方法
 
@@ -31,7 +31,7 @@ npm run dev
 
 ## プロジェクト構成
 ```
-welfare-support/
+g-ranche/
 ├── backend/
 │   ├── main.py              # FastAPI エントリポイント
 │   ├── database.py          # SQLite + SQLAlchemy セットアップ
@@ -81,5 +81,5 @@ welfare-support/
 
 ## 注意事項
 - `.env`ファイルに`ANTHROPIC_API_KEY`を設定すること
-- データベースファイル: `backend/welfare_support.db`
+- データベースファイル: `backend/g_ranche.db`
 - 開発時はCORSを全許可（本番環境では要変更）

@@ -8,8 +8,8 @@ from routers import clients, support_plans, case_records, schedules, ai
 import models  # noqa: F401
 
 app = FastAPI(
-    title="福祉支援管理システム API",
-    description="障害福祉サービスの相談支援業務を管理するAPIです。",
+    title="ぐ・らんちぇ 管理システム API",
+    description="ぐ・らんちぇの相談支援業務を管理するAPIです。",
     version="1.0.0",
 )
 
@@ -40,7 +40,7 @@ async def startup_event():
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {"message": "Welfare Support API"}
+    return {"message": "ぐ・らんちぇ 管理システム API"}
 
 
 @app.get("/health")

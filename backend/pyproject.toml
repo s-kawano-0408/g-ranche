@@ -1,7 +1,7 @@
 [project]
-name = "welfare-support-backend"
+name = "g-ranche-backend"
 version = "0.1.0"
-description = "Welfare Support Management System Backend"
+description = "ぐ・らんちぇ 管理システム Backend"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.109.0",

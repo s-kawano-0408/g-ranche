@@ -4,7 +4,7 @@
 
 ```python
 # database.py
-engine = create_engine("sqlite:///./welfare_support.db")
+engine = create_engine("sqlite:///./g_ranche.db")
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -212,7 +212,7 @@ new_field = Column(String)
 new_field: Optional[str] = None
 
 # 3. DBファイルを削除して再起動（or Alembicを使う）
-rm welfare_support.db
+rm g_ranche.db
 uv run uvicorn main:app --reload
 ```
 

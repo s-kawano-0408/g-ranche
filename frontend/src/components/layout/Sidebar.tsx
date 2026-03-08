@@ -20,9 +20,9 @@ export default function Sidebar() {
     <aside className="w-64 min-h-screen bg-slate-900 flex flex-col fixed left-0 top-0 z-40">
       <div className="p-6 border-b border-slate-700">
         <h1 className="text-teal-400 font-bold text-lg leading-tight">
-          相談支援システム
+          ぐ・らんちぇ
         </h1>
-        <p className="text-slate-500 text-xs mt-1">Welfare Support Management</p>
+        <p className="text-slate-500 text-xs mt-1">管理システム</p>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {
