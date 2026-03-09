@@ -1,39 +1,41 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import Header from '@/components/layout/Header';
-import ClientCard from '@/components/clients/ClientCard';
-import ClientSearch from '@/components/clients/ClientSearch';
-import ClientForm from '@/components/clients/ClientForm';
-import { Button } from '@/components/ui/button';
-import { Plus, Users } from 'lucide-react';
-import { useClients } from '@/hooks/useClients';
-import { Client } from '@/types';
+import { useState, useMemo } from "react";
+import Header from "@/components/layout/Header";
+import ClientCard from "@/components/clients/ClientCard";
+import ClientSearch from "@/components/clients/ClientSearch";
+import ClientForm from "@/components/clients/ClientForm";
+import { Button } from "@/components/ui/button";
+import { Plus, Users } from "lucide-react";
+import { useClients } from "@/hooks/useClients";
 
 export default function ClientsPage() {
   const { clients, loading, error, addClient } = useClients();
   const [showForm, setShowForm] = useState(false);
-  const [search, setSearch] = useState('');
-  const [disabilityFilter, setDisabilityFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [search, setSearch] = useState("");
+  const [clientTypeFilter, setClientTypeFilter] = useState<string>("すべて");
+  const [statusFilter, setStatusFilter] = useState<string>("利用中");
 
   const filtered = useMemo(() => {
-    return clients.filter(c => {
+    return clients.filter((c) => {
+      const fullName = `${c.family_name}${c.given_name}`;
+      const fullNameKana = `${c.family_name_kana || ""}${c.given_name_kana || ""}`;
       const matchSearch =
-        !search ||
-        c.name.includes(search) ||
-        c.name_kana?.includes(search);
-      const matchDisability =
-        disabilityFilter === 'all' || c.disability_type === disabilityFilter;
-      const matchStatus =
-        statusFilter === 'all' || c.status === statusFilter;
-      return matchSearch && matchDisability && matchStatus;
+        !search || fullName.includes(search) || fullNameKana.includes(search);
+      const matchClientType =
+        clientTypeFilter === "すべて" || c.client_type === clientTypeFilter;
+      const statusMap: Record<string, string> = { "利用中": "active", "利用終了": "inactive" };
+      const matchStatus = statusFilter === "すべて" || c.status === statusMap[statusFilter];
+      return matchSearch && matchClientType && matchStatus;
     });
-  }, [clients, search, disabilityFilter, statusFilter]);
+  }, [clients, search, clientTypeFilter, statusFilter]);
 
   return (
     <div className="flex flex-col flex-1">
-      <Header title="利用者管理" description={`登録利用者: ${clients.length}名`}>
+      <Header
+        title="利用者管理"
+        description={`登録利用者: ${clients.length}名`}
+      >
         <Button
           className="bg-teal-600 hover:bg-teal-700 gap-2"
           onClick={() => setShowForm(true)}
@@ -47,16 +49,19 @@ export default function ClientsPage() {
         <ClientSearch
           search={search}
           onSearchChange={setSearch}
-          disabilityFilter={disabilityFilter}
-          onDisabilityChange={(v) => setDisabilityFilter(v || 'all')}
+          clientTypeFilter={clientTypeFilter}
+          onClientTypeChange={(v) => setClientTypeFilter(v || "すべて")}
           statusFilter={statusFilter}
-          onStatusChange={(v) => setStatusFilter(v || 'all')}
+          onStatusChange={(v) => setStatusFilter(v || "すべて")}
         />
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="h-40 bg-gray-100 rounded-xl animate-pulse" />
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="h-40 bg-gray-100 rounded-xl animate-pulse"
+              />
             ))}
           </div>
         ) : error ? (
@@ -67,11 +72,13 @@ export default function ClientsPage() {
           <div className="text-center py-20 text-gray-400">
             <Users size={48} className="mx-auto mb-4 opacity-40" />
             <p className="text-lg font-medium">利用者が見つかりません</p>
-            <p className="text-sm mt-1">検索条件を変更するか、新規登録してください</p>
+            <p className="text-sm mt-1">
+              検索条件を変更するか、新規登録してください
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filtered.map(client => (
+            {filtered.map((client) => (
               <ClientCard key={client.id} client={client} />
             ))}
           </div>
@@ -81,7 +88,9 @@ export default function ClientsPage() {
       <ClientForm
         open={showForm}
         onClose={() => setShowForm(false)}
-        onSubmit={async (data) => { await addClient(data); }}
+        onSubmit={async (data) => {
+          await addClient(data);
+        }}
       />
     </div>
   );

@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calendar, FileText, Bot } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
   { href: '/clients', label: '利用者管理', icon: Users },
+  { href: '/monthly-tasks', label: '月間業務管理', icon: ClipboardList },
   { href: '/schedules', label: 'スケジュール', icon: Calendar },
   { href: '/records', label: '支援記録', icon: FileText },
   { href: '/ai', label: 'AIアシスタント', icon: Bot },

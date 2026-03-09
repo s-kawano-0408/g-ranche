@@ -8,20 +8,18 @@ class Client(Base):
     __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    name_kana = Column(String)
-    birth_date = Column(Date)
-    gender = Column(String)  # "男性"/"女性"/"その他"
-    disability_type = Column(String)  # "身体障害"/"知的障害"/"精神障害"/"発達障害"/"難病"
-    disability_certificate_level = Column(String)
-    address = Column(String)
-    phone = Column(String)
-    emergency_contact = Column(String)
-    emergency_phone = Column(String)
+    family_name = Column(String, nullable=False)
+    given_name = Column(String, nullable=False)
+    family_name_kana = Column(String, nullable=False)
+    given_name_kana = Column(String, nullable=False)
+    birth_date = Column(Date, nullable=False)
+    gender = Column(String)
+    client_type = Column(String, nullable=False)  # "児"/"者"
+    certificate_number = Column(String, nullable=False)
     staff_id = Column(Integer, ForeignKey("staffs.id"))
     status = Column(String, default="active")  # "active"/"inactive"
-    intake_date = Column(Date)
     notes = Column(Text)
+    end_date = Column(Date)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

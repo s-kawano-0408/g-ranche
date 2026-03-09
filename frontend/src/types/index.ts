@@ -8,19 +8,17 @@ export interface Staff {
 
 export interface Client {
   id: number;
-  name: string;
-  name_kana: string;
+  family_name: string;
+  given_name: string;
+  family_name_kana: string;
+  given_name_kana: string;
   birth_date: string;
   gender: string;
-  disability_type: string;
-  disability_certificate_level: string;
-  address: string;
-  phone: string;
-  emergency_contact: string;
-  emergency_phone: string;
+  client_type: string;
+  certificate_number: string;
   staff_id: number;
   status: string;
-  intake_date: string;
+  end_date: string;
   notes: string;
 }
 
@@ -62,7 +60,7 @@ export interface Schedule {
 }
 
 export interface AIMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   toolCalls?: ToolCall[];
 }
@@ -73,8 +71,16 @@ export interface ToolCall {
   result?: unknown;
 }
 
+export interface MonthlyTask {
+  id: number;
+  client_id: number;
+  year: number;
+  month: number;
+  task_type: string;
+}
+
 export interface StreamEvent {
-  type: 'text' | 'tool_call' | 'tool_result' | 'done' | 'error';
+  type: "text" | "tool_call" | "tool_result" | "done" | "error";
   content?: string;
   name?: string;
   input?: Record<string, unknown>;

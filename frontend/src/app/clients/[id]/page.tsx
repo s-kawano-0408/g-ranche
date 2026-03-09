@@ -6,17 +6,16 @@ import Header from '@/components/layout/Header';
 import RecordTimeline from '@/components/records/RecordTimeline';
 import RecordForm from '@/components/records/RecordForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, Plus, Sparkles, User, Phone, MapPin, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Sparkles, User, Calendar } from 'lucide-react';
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
 import { getClient, getSupportPlans, getCaseRecords, getSchedules, createCaseRecord, generateSupportPlan } from '@/lib/api';
+import { calcAge, calcGrade } from '@/lib/utils';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: '利用中', color: 'bg-teal-100 text-teal-700' },
   inactive: { label: '利用終了', color: 'bg-gray-100 text-gray-600' },
-  pending: { label: '待機中', color: 'bg-yellow-100 text-yellow-700' },
 };
 
 const scheduleTypeColors: Record<string, string> = {
@@ -34,6 +33,11 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
       <dd className="text-sm text-gray-900 font-medium">{value || '-'}</dd>
     </div>
   );
+}
+
+function formatAge(birthDate: string) {
+  const age = calcAge(birthDate);
+  return age !== null ? `(${age}歳)` : '';
 }
 
 export default function ClientDetailPage() {
@@ -109,24 +113,19 @@ export default function ClientDetailPage() {
     );
   }
 
+  const fullName = `${client.family_name} ${client.given_name}`;
+  const fullNameKana = `${client.family_name_kana || ''} ${client.given_name_kana || ''}`.trim();
   const status = statusConfig[client.status] || { label: client.status, color: 'bg-gray-100 text-gray-600' };
-
-  function calcAge(birthDate: string) {
-    if (!birthDate) return '';
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return `(${age}歳)`;
-  }
 
   return (
     <div className="flex flex-col flex-1">
       <Header
-        title={client.name}
-        description={`${client.disability_type} ${client.disability_certificate_level ? '/ ' + client.disability_certificate_level : ''}`}
+        title={fullName}
+        description={fullNameKana}
       >
+        <span className={`text-sm px-2 py-1 rounded font-medium ${client.client_type === '児' ? 'bg-pink-100 text-pink-700' : 'bg-sky-100 text-sky-700'}`}>
+          {client.client_type}
+        </span>
         <span className={`text-sm px-3 py-1 rounded-full font-medium ${status.color}`}>
           {status.label}
         </span>
@@ -147,45 +146,34 @@ export default function ClientDetailPage() {
 
           {/* Profile Tab */}
           <TabsContent value="profile">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
-                    <User size={24} className="text-teal-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{client.name}</h3>
-                    <p className="text-sm text-gray-500">{client.name_kana}</p>
-                  </div>
+            <Card className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
+                  <User size={24} className="text-teal-600" />
                 </div>
-                <dl>
-                  <InfoRow label="生年月日" value={client.birth_date ? `${new Date(client.birth_date).toLocaleDateString('ja-JP')} ${calcAge(client.birth_date)}` : '-'} />
-                  <InfoRow label="性別" value={client.gender} />
-                  <InfoRow label="障害種別" value={client.disability_type} />
-                  <InfoRow label="障害程度区分" value={client.disability_certificate_level} />
-                  <InfoRow label="利用開始日" value={client.intake_date ? new Date(client.intake_date).toLocaleDateString('ja-JP') : '-'} />
-                </dl>
-              </Card>
-
-              <Card className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Phone size={16} className="text-gray-400" />
-                  連絡先情報
-                </h3>
-                <dl>
-                  <InfoRow label="住所" value={client.address} />
-                  <InfoRow label="電話番号" value={client.phone} />
-                  <InfoRow label="緊急連絡先" value={client.emergency_contact} />
-                  <InfoRow label="緊急連絡先TEL" value={client.emergency_phone} />
-                </dl>
-                {client.notes && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xs font-medium text-gray-500 mb-1">備考</p>
-                    <p className="text-sm text-gray-700">{client.notes}</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">{fullName}</h3>
+                  <p className="text-sm text-gray-500">{fullNameKana}</p>
+                </div>
+              </div>
+              <dl>
+                <InfoRow label="生年月日" value={client.birth_date ? `${new Date(client.birth_date).toLocaleDateString('ja-JP')} ${formatAge(client.birth_date)}` : '-'} />
+                {client.client_type === '児' && calcGrade(client.birth_date) && (
+                  <InfoRow label="学年" value={calcGrade(client.birth_date) || undefined} />
                 )}
-              </Card>
-            </div>
+                <InfoRow label="性別" value={client.gender} />
+                <InfoRow label="受給者証番号" value={client.certificate_number} />
+                {client.end_date && (
+                  <InfoRow label="終了日" value={new Date(client.end_date).toLocaleDateString('ja-JP')} />
+                )}
+              </dl>
+              {client.notes && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs font-medium text-gray-500 mb-1">備考</p>
+                  <p className="text-sm text-gray-700">{client.notes}</p>
+                </div>
+              )}
+            </Card>
           </TabsContent>
 
           {/* Plans Tab */}

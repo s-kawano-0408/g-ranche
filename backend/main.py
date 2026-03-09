@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
-from routers import clients, support_plans, case_records, schedules, ai
+from routers import clients, support_plans, case_records, schedules, ai, monthly_tasks
 
 # Import all models to ensure they are registered with SQLAlchemy
 import models  # noqa: F401
@@ -28,6 +28,7 @@ app.include_router(support_plans.router, prefix="/api/support-plans", tags=["支
 app.include_router(case_records.router, prefix="/api/records", tags=["支援記録"])
 app.include_router(schedules.router, prefix="/api/schedules", tags=["スケジュール"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI アシスタント"])
+app.include_router(monthly_tasks.router, prefix="/api/monthly-tasks", tags=["月間業務管理"])
 
 
 @app.on_event("startup")

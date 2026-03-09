@@ -12,8 +12,8 @@ router = APIRouter()
 
 @router.get("/", response_model=List[ClientResponse])
 def list_clients(
-    name: Optional[str] = Query(None, description="名前で検索（部分一致）"),
-    disability_type: Optional[str] = Query(None, description="障害種別で検索"),
+    name: Optional[str] = Query(None, description="名前・フリガナで検索（部分一致）"),
+    client_type: Optional[str] = Query(None, description="児/者で絞り込み"),
     status: Optional[str] = Query(None, description="状態で検索"),
     db: Session = Depends(get_db),
 ):
@@ -24,19 +24,21 @@ def list_clients(
     if name:
         conditions.append(
             or_(
-                Client.name.contains(name),
-                Client.name_kana.contains(name),
+                Client.family_name.contains(name),
+                Client.given_name.contains(name),
+                Client.family_name_kana.contains(name),
+                Client.given_name_kana.contains(name),
             )
         )
-    if disability_type:
-        conditions.append(Client.disability_type == disability_type)
+    if client_type:
+        conditions.append(Client.client_type == client_type)
     if status:
         conditions.append(Client.status == status)
 
     if conditions:
         stmt = stmt.where(and_(*conditions))
 
-    stmt = stmt.order_by(Client.name)
+    stmt = stmt.order_by(Client.family_name_kana, Client.given_name_kana)
     clients = db.execute(stmt).scalars().all()
     return clients
 

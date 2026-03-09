@@ -22,12 +22,12 @@ echo "▶ バックエンド起動中 (http://localhost:8000)..."
 cd "$BACKEND_DIR"
 
 # Check if DB needs seeding
-if [ ! -f "welfare_support.db" ]; then
+if [ ! -f "g_ranche.db" ]; then
   echo "  サンプルデータを投入中..."
   uv run python seed.py
 fi
 
-uv run uvicorn main:app --reload --port 8000 &
+uv run python -m uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 
 sleep 2

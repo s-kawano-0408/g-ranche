@@ -4,6 +4,7 @@ from .support_plan import SupportPlan
 from .case_record import CaseRecord
 from .schedule import Schedule
 from .ai_conversation import AIConversation
+from .monthly_task import MonthlyTask
 
 __all__ = [
     "Staff",
@@ -12,4 +13,5 @@ __all__ = [
     "CaseRecord",
     "Schedule",
     "AIConversation",
+    "MonthlyTask",
 ]

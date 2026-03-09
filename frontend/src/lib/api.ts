@@ -1,4 +1,4 @@
-import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
+import { Client, SupportPlan, CaseRecord, Schedule, MonthlyTask } from '@/types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -103,6 +103,23 @@ export async function updateSchedule(id: number, data: Partial<Schedule>): Promi
     method: 'PUT',
     body: JSON.stringify(data),
   });
+}
+
+// Monthly Tasks
+export async function getMonthlyTasks(year?: number): Promise<MonthlyTask[]> {
+  const query = year ? `?year=${year}` : '';
+  return fetchAPI<MonthlyTask[]>(`/api/monthly-tasks${query}`);
+}
+
+export async function upsertMonthlyTask(data: { client_id: number; year: number; month: number; task_type: string }): Promise<MonthlyTask> {
+  return fetchAPI<MonthlyTask>('/api/monthly-tasks', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteMonthlyTask(clientId: number, year: number, month: number): Promise<void> {
+  await fetch(`${BASE_URL}/api/monthly-tasks?client_id=${clientId}&year=${year}&month=${month}`, { method: 'DELETE' });
 }
 
 // AI
