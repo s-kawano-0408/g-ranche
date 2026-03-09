@@ -27,7 +27,7 @@ const defaultData: Omit<Client, 'id'> = {
   client_type: '',
   certificate_number: '',
   staff_id: 1,
-  status: 'active',
+  status: '利用中',
   end_date: '',
   notes: '',
 };
@@ -63,12 +63,14 @@ export default function ClientForm({ open, onClose, onSubmit, initialData, title
   };
 
   // 保存ボタン押したときの処理
+  const statusMap: Record<string, string> = { '利用中': 'active', '利用終了': 'inactive' };
+
   const handleSubmit = async () => {
     // 必須項目チェック
     if (!form.family_name || !form.given_name || !form.family_name_kana || !form.given_name_kana || !form.birth_date || !form.client_type || !form.certificate_number) return;
     try {
       setLoading(true);
-      await onSubmit(form);
+      await onSubmit({ ...form, status: statusMap[form.status] || form.status });
       onClose();
       setForm(defaultData);
     } catch (e) {
@@ -192,8 +194,8 @@ export default function ClientForm({ open, onClose, onSubmit, initialData, title
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">利用中</SelectItem>
-                <SelectItem value="inactive">利用終了</SelectItem>
+                <SelectItem value="利用中">利用中</SelectItem>
+                <SelectItem value="利用終了">利用終了</SelectItem>
               </SelectContent>
             </Select>
           </div>

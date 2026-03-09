@@ -91,9 +91,13 @@ export default function MonthlyTasksPage() {
           >
             &lt;
           </button>
-          <span className="text-lg font-semibold text-slate-700 min-w-[80px] text-center">
+          <button
+            onClick={() => setYear(new Date().getFullYear())}
+            className="text-lg font-semibold text-slate-700 min-w-[80px] text-center hover:text-teal-600 transition-colors cursor-pointer"
+            title="今年に戻る"
+          >
             {year}年
-          </span>
+          </button>
           <button
             onClick={() => setYear((y) => y + 1)}
             className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
