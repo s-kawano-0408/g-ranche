@@ -12,6 +12,8 @@ from models.client import Client
 from models.support_plan import SupportPlan
 from models.case_record import CaseRecord
 from models.schedule import Schedule
+from models.user import User
+from auth import hash_password
 
 
 def seed():
@@ -25,7 +27,31 @@ def seed():
         db.query(SupportPlan).delete()
         db.query(Client).delete()
         db.query(Staff).delete()
+        db.query(User).delete()
         db.commit()
+
+        # ── Users（ログインユーザー）─────────────────────────────
+        user_admin = User(
+            email="admin@g-ranche.jp",
+            password_hash=hash_password("admin123"),
+            name="管理者",
+            role="admin",
+        )
+        user_staff1 = User(
+            email="staff1@g-ranche.jp",
+            password_hash=hash_password("staff123"),
+            name="スタッフ1",
+            role="staff",
+        )
+        user_staff2 = User(
+            email="staff2@g-ranche.jp",
+            password_hash=hash_password("staff123"),
+            name="スタッフ2",
+            role="staff",
+        )
+        db.add_all([user_admin, user_staff1, user_staff2])
+        db.commit()
+        print("ユーザー登録完了: 3名（admin × 1, staff × 2）")
 
         # ── Staff ────────────────────────────────────────────────
         staff1 = Staff(
@@ -369,6 +395,7 @@ def seed():
         print("スケジュール登録完了: 8件")
 
         print("\n=== シードデータの登録が完了しました ===")
+        print(f"ユーザー: 3名（admin × 1, staff × 2）")
         print(f"スタッフ: 2名")
         print(f"利用者: 5名")
         print(f"支援計画: 5件")

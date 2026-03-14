@@ -5,6 +5,7 @@ from .case_record import CaseRecord
 from .schedule import Schedule
 from .ai_conversation import AIConversation
 from .monthly_task import MonthlyTask
+from .user import User
 
 __all__ = [
     "Staff",
@@ -14,4 +15,5 @@ __all__ = [
     "Schedule",
     "AIConversation",
     "MonthlyTask",
+    "User",
 ]
