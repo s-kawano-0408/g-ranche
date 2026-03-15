@@ -8,6 +8,7 @@ import ClientForm from "@/components/clients/ClientForm";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ClientsPage() {
   const { clients, loading, error, addClient } = useClients();
@@ -15,6 +16,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [clientTypeFilter, setClientTypeFilter] = useState<string>("すべて");
   const [statusFilter, setStatusFilter] = useState<string>("利用中");
+  const { user } = useAuth();
 
   const filtered = useMemo(() => {
     return clients.filter((c) => {
@@ -24,8 +26,12 @@ export default function ClientsPage() {
         !search || fullName.includes(search) || fullNameKana.includes(search);
       const matchClientType =
         clientTypeFilter === "すべて" || c.client_type === clientTypeFilter;
-      const statusMap: Record<string, string> = { "利用中": "active", "利用終了": "inactive" };
-      const matchStatus = statusFilter === "すべて" || c.status === statusMap[statusFilter];
+      const statusMap: Record<string, string> = {
+        利用中: "active",
+        利用終了: "inactive",
+      };
+      const matchStatus =
+        statusFilter === "すべて" || c.status === statusMap[statusFilter];
       return matchSearch && matchClientType && matchStatus;
     });
   }, [clients, search, clientTypeFilter, statusFilter]);
@@ -36,13 +42,15 @@ export default function ClientsPage() {
         title="利用者管理"
         description={`登録利用者: ${clients.length}名`}
       >
-        <Button
-          className="bg-teal-600 hover:bg-teal-700 gap-2"
-          onClick={() => setShowForm(true)}
-        >
-          <Plus size={16} />
-          新規利用者登録
-        </Button>
+        {user?.role === "admin" && (
+          <Button
+            className="bg-teal-600 hover:bg-teal-700 gap-2"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus size={16} />
+            新規利用者登録
+          </Button>
+        )}
       </Header>
 
       <div className="flex-1 p-8 space-y-6">

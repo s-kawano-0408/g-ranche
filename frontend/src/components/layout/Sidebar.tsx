@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -46,6 +46,20 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {user?.role === 'admin' && (
+          <Link
+            href="/settings"
+            className={cn(
+              'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+              pathname === '/settings' || pathname.startsWith('/settings/')
+                ? 'bg-teal-600 text-white'
+                : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+            )}
+          >
+            <Settings size={18} />
+            設定
+          </Link>
+        )}
       </nav>
       <div className="p-4 border-t border-slate-700 space-y-3">
         {user && (

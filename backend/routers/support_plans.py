@@ -7,6 +7,7 @@ from database import get_db
 from models.support_plan import SupportPlan
 from models.client import Client
 from schemas.support_plan import SupportPlanCreate, SupportPlanUpdate, SupportPlanResponse
+from auth import get_current_user
 
 router = APIRouter()
 
@@ -15,6 +16,7 @@ router = APIRouter()
 def list_support_plans(
     client_id: Optional[int] = Query(None, description="利用者IDでフィルタリング"),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """支援計画一覧を取得します。利用者IDでフィルタリングできます。"""
     stmt = select(SupportPlan)
@@ -26,7 +28,7 @@ def list_support_plans(
 
 
 @router.post("/", response_model=SupportPlanResponse, status_code=201)
-def create_support_plan(plan_in: SupportPlanCreate, db: Session = Depends(get_db)):
+def create_support_plan(plan_in: SupportPlanCreate, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """新しい支援計画を作成します。"""
     # Verify client exists
     client = db.execute(
@@ -43,7 +45,7 @@ def create_support_plan(plan_in: SupportPlanCreate, db: Session = Depends(get_db
 
 
 @router.get("/{plan_id}", response_model=SupportPlanResponse)
-def get_support_plan(plan_id: int, db: Session = Depends(get_db)):
+def get_support_plan(plan_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """指定した支援計画の詳細を取得します。"""
     plan = db.execute(
         select(SupportPlan).where(SupportPlan.id == plan_id)
@@ -55,7 +57,7 @@ def get_support_plan(plan_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{plan_id}", response_model=SupportPlanResponse)
 def update_support_plan(
-    plan_id: int, plan_in: SupportPlanUpdate, db: Session = Depends(get_db)
+    plan_id: int, plan_in: SupportPlanUpdate, db: Session = Depends(get_db), _user=Depends(get_current_user)
 ):
     """支援計画を更新します。"""
     plan = db.execute(

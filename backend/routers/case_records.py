@@ -6,6 +6,7 @@ from sqlalchemy import select, and_
 from database import get_db
 from models.case_record import CaseRecord
 from schemas.case_record import CaseRecordCreate, CaseRecordUpdate, CaseRecordResponse
+from auth import get_current_user
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ def list_case_records(
     record_type: Optional[str] = Query(None, description="記録種別でフィルタリング"),
     limit: int = Query(50, description="取得件数の上限"),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """支援記録一覧を取得します。利用者ID、スタッフID、記録種別でフィルタリングできます。"""
     stmt = select(CaseRecord)
@@ -38,7 +40,7 @@ def list_case_records(
 
 
 @router.post("/", response_model=CaseRecordResponse, status_code=201)
-def create_case_record(record_in: CaseRecordCreate, db: Session = Depends(get_db)):
+def create_case_record(record_in: CaseRecordCreate, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """新しい支援記録を作成します。"""
     record = CaseRecord(**record_in.model_dump())
     db.add(record)
@@ -49,7 +51,7 @@ def create_case_record(record_in: CaseRecordCreate, db: Session = Depends(get_db
 
 @router.put("/{record_id}", response_model=CaseRecordResponse)
 def update_case_record(
-    record_id: int, record_in: CaseRecordUpdate, db: Session = Depends(get_db)
+    record_id: int, record_in: CaseRecordUpdate, db: Session = Depends(get_db), _user=Depends(get_current_user)
 ):
     """支援記録を更新します。"""
     record = db.execute(

@@ -212,6 +212,18 @@ export async function generateReport(
   });
 }
 
+// Users (admin)
+export async function getUsers(): Promise<{ id: number; email: string; name: string; role: string }[]> {
+  return fetchAPI("/api/auth/users");
+}
+
+export async function changePassword(userId: number, newPassword: string): Promise<{ message: string }> {
+  return fetchAPI(`/api/auth/users/${userId}/password`, {
+    method: "PUT",
+    body: JSON.stringify({ new_password: newPassword }),
+  });
+}
+
 export async function login(
   email: string,
   password: string,

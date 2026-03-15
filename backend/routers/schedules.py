@@ -7,6 +7,7 @@ from sqlalchemy import select, and_
 from database import get_db
 from models.schedule import Schedule
 from schemas.schedule import ScheduleCreate, ScheduleUpdate, ScheduleResponse
+from auth import get_current_user
 
 router = APIRouter()
 
@@ -15,6 +16,7 @@ router = APIRouter()
 def get_today_schedules(
     staff_id: Optional[int] = Query(None, description="スタッフIDでフィルタリング"),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """本日のスケジュール一覧を取得します。"""
     today = date.today()
@@ -42,6 +44,7 @@ def list_schedules(
     client_id: Optional[int] = Query(None, description="利用者IDでフィルタリング"),
     staff_id: Optional[int] = Query(None, description="スタッフIDでフィルタリング"),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """スケジュール一覧を取得します。日付範囲、利用者ID、スタッフIDでフィルタリングできます。"""
     stmt = select(Schedule)
@@ -77,7 +80,7 @@ def list_schedules(
 
 
 @router.post("/", response_model=ScheduleResponse, status_code=201)
-def create_schedule(schedule_in: ScheduleCreate, db: Session = Depends(get_db)):
+def create_schedule(schedule_in: ScheduleCreate, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """新しいスケジュールを作成します。"""
     schedule = Schedule(**schedule_in.model_dump())
     db.add(schedule)
@@ -88,7 +91,7 @@ def create_schedule(schedule_in: ScheduleCreate, db: Session = Depends(get_db)):
 
 @router.put("/{schedule_id}", response_model=ScheduleResponse)
 def update_schedule(
-    schedule_id: int, schedule_in: ScheduleUpdate, db: Session = Depends(get_db)
+    schedule_id: int, schedule_in: ScheduleUpdate, db: Session = Depends(get_db), _user=Depends(get_current_user)
 ):
     """スケジュールを更新します。"""
     schedule = db.execute(

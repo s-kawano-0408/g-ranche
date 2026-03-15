@@ -19,6 +19,7 @@ from schemas.ai_conversation import (
 )
 from ai.client import AIClient
 from ai.tool_executor import ToolExecutor
+from auth import get_current_user
 
 router = APIRouter()
 
@@ -37,6 +38,7 @@ async def sse_event(data: dict) -> str:
 async def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """
     SSE streaming chat endpoint with Tool Use support.
@@ -119,6 +121,7 @@ async def chat(
 async def generate_plan(
     request: GeneratePlanRequest,
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """
     Generate a support plan document for a client using AI.
@@ -173,6 +176,7 @@ async def generate_plan(
 async def summarize_record(
     request: SummarizeRecordRequest,
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """
     Summarize a case record using AI.
@@ -215,6 +219,7 @@ async def summarize_record(
 async def generate_report(
     request: GenerateReportRequest,
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """
     Generate a monitoring report for a client using AI.

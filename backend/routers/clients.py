@@ -6,6 +6,7 @@ from sqlalchemy import select, and_, or_
 from database import get_db
 from models.client import Client
 from schemas.client import ClientCreate, ClientUpdate, ClientResponse
+from auth import get_current_user, require_admin
 
 router = APIRouter()
 
@@ -16,6 +17,7 @@ def list_clients(
     client_type: Optional[str] = Query(None, description="児/者で絞り込み"),
     status: Optional[str] = Query(None, description="状態で検索"),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """利用者一覧を取得します。名前、障害種別、状態でフィルタリングできます。"""
     stmt = select(Client)
@@ -44,8 +46,8 @@ def list_clients(
 
 
 @router.post("/", response_model=ClientResponse, status_code=201)
-def create_client(client_in: ClientCreate, db: Session = Depends(get_db)):
-    """新しい利用者を登録します。"""
+def create_client(client_in: ClientCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    """新しい利用者を登録します。（管理者のみ）"""
     client = Client(**client_in.model_dump())
     db.add(client)
     db.commit()
@@ -54,7 +56,7 @@ def create_client(client_in: ClientCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{client_id}", response_model=ClientResponse)
-def get_client(client_id: int, db: Session = Depends(get_db)):
+def get_client(client_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """指定した利用者の詳細情報を取得します。"""
     client = db.execute(
         select(Client).where(Client.id == client_id)
@@ -66,7 +68,7 @@ def get_client(client_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{client_id}", response_model=ClientResponse)
 def update_client(
-    client_id: int, client_in: ClientUpdate, db: Session = Depends(get_db)
+    client_id: int, client_in: ClientUpdate, db: Session = Depends(get_db), _user=Depends(get_current_user)
 ):
     """利用者情報を更新します。"""
     client = db.execute(
@@ -85,8 +87,8 @@ def update_client(
 
 
 @router.delete("/{client_id}", status_code=204)
-def delete_client(client_id: int, db: Session = Depends(get_db)):
-    """利用者を削除します。"""
+def delete_client(client_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    """利用者を削除します。（管理者のみ）"""
     client = db.execute(
         select(Client).where(Client.id == client_id)
     ).scalar_one_or_none()

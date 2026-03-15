@@ -6,6 +6,7 @@ from sqlalchemy import select, and_
 from database import get_db
 from models.monthly_task import MonthlyTask
 from schemas.monthly_task import MonthlyTaskCreate, MonthlyTaskResponse
+from auth import get_current_user
 
 router = APIRouter()
 
@@ -16,6 +17,7 @@ def list_monthly_tasks(
     month: Optional[int] = Query(None, description="月で絞り込み"),
     client_id: Optional[int] = Query(None, description="利用者IDで絞り込み"),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """月間業務タスク一覧を取得します。"""
     stmt = select(MonthlyTask)
@@ -39,6 +41,7 @@ def list_monthly_tasks(
 def upsert_monthly_task(
     task_in: MonthlyTaskCreate,
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """月間業務タスクを登録・更新します（upsert）。"""
     existing = db.execute(
@@ -70,6 +73,7 @@ def delete_monthly_task(
     year: int = Query(..., description="年"),
     month: int = Query(..., description="月"),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """月間業務タスクを削除します（空白に戻す）。"""
     task = db.execute(
