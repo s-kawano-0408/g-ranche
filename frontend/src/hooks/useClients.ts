@@ -27,7 +27,8 @@ export function useClients() {
     fetchClients();
   }, [fetchClients]);
 
-  const addClient = useCallback(async (data: Record<string, unknown>) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addClient = useCallback(async (data: any) => {
     const newClient = await createClient(data);
     setClients(prev => [...prev, newClient]);
     return newClient;

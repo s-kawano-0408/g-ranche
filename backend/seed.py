@@ -3,6 +3,7 @@ Seed script to populate the database with sample data.
 Run with: python seed.py
 """
 import json
+import random
 from datetime import datetime, date, timedelta
 
 from database import SessionLocal, engine, Base
@@ -16,6 +17,80 @@ from models.schedule import Schedule
 from models.user import User
 from auth import hash_password
 from pseudonym import generate_hash
+
+
+# ── 名前データ ──────────────────────────────────────────────
+FAMILY_NAMES = [
+    ("佐藤", "サトウ"), ("鈴木", "スズキ"), ("高橋", "タカハシ"), ("田中", "タナカ"),
+    ("伊藤", "イトウ"), ("渡辺", "ワタナベ"), ("山本", "ヤマモト"), ("中村", "ナカムラ"),
+    ("小林", "コバヤシ"), ("加藤", "カトウ"), ("吉田", "ヨシダ"), ("山田", "ヤマダ"),
+    ("佐々木", "ササキ"), ("松本", "マツモト"), ("井上", "イノウエ"), ("木村", "キムラ"),
+    ("林", "ハヤシ"), ("斎藤", "サイトウ"), ("清水", "シミズ"), ("山崎", "ヤマザキ"),
+    ("森", "モリ"), ("池田", "イケダ"), ("橋本", "ハシモト"), ("阿部", "アベ"),
+    ("石川", "イシカワ"), ("山下", "ヤマシタ"), ("中島", "ナカジマ"), ("石井", "イシイ"),
+    ("小川", "オガワ"), ("前田", "マエダ"), ("岡田", "オカダ"), ("長谷川", "ハセガワ"),
+    ("藤田", "フジタ"), ("後藤", "ゴトウ"), ("近藤", "コンドウ"), ("村上", "ムラカミ"),
+    ("遠藤", "エンドウ"), ("青木", "アオキ"), ("坂本", "サカモト"), ("藤井", "フジイ"),
+]
+
+GIVEN_NAMES_MALE = [
+    ("太郎", "タロウ"), ("一郎", "イチロウ"), ("健太", "ケンタ"), ("大輔", "ダイスケ"),
+    ("翔太", "ショウタ"), ("拓也", "タクヤ"), ("直樹", "ナオキ"), ("雄介", "ユウスケ"),
+    ("隆", "タカシ"), ("誠", "マコト"), ("浩二", "コウジ"), ("和也", "カズヤ"),
+    ("達也", "タツヤ"), ("修", "オサム"), ("剛", "ツヨシ"), ("亮", "リョウ"),
+    ("悠太", "ユウタ"), ("蓮", "レン"), ("大地", "ダイチ"), ("颯太", "ソウタ"),
+    ("陸", "リク"), ("樹", "イツキ"), ("優斗", "ユウト"), ("湊", "ミナト"),
+    ("春樹", "ハルキ"), ("結翔", "ユイト"), ("朝陽", "アサヒ"), ("悠真", "ユウマ"),
+]
+
+GIVEN_NAMES_FEMALE = [
+    ("花子", "ハナコ"), ("美咲", "ミサキ"), ("さくら", "サクラ"), ("愛", "アイ"),
+    ("由美", "ユミ"), ("恵", "メグミ"), ("真由美", "マユミ"), ("裕子", "ユウコ"),
+    ("明美", "アケミ"), ("京子", "キョウコ"), ("陽子", "ヨウコ"), ("千恵", "チエ"),
+    ("結衣", "ユイ"), ("美優", "ミユ"), ("葵", "アオイ"), ("凛", "リン"),
+    ("楓", "カエデ"), ("ひまり", "ヒマリ"), ("芽依", "メイ"), ("心春", "コハル"),
+    ("紬", "ツムギ"), ("莉子", "リコ"), ("杏", "アン"), ("彩花", "アヤカ"),
+]
+
+NOTES_ADULT = [
+    "就労継続支援B型利用中。作業意欲が高い。",
+    "グループホーム入居中。生活は安定している。",
+    "精神科デイケア週2回利用。服薬管理支援が必要。",
+    "居宅介護利用中。入浴・排泄支援が中心。",
+    "就労継続支援A型で事務作業に従事。",
+    "生活介護事業所に通所。日中活動支援を受けている。",
+    "自立訓練（生活訓練）利用中。一人暮らしを目指している。",
+    "就労移行支援で訓練中。一般就労を目指している。",
+    "訪問看護と居宅介護を併用。体調管理が課題。",
+    "同行援護を利用。外出時の支援が必要。",
+    "行動援護を利用。パニック時の対応が重要。",
+    "短期入所を月2回利用。家族のレスパイト目的。",
+    "共同生活援助利用。他の入居者との関係良好。",
+    "地域活動支援センター週3回利用。交流の場として活用。",
+    "計画相談支援のみ。在宅で安定した生活を送っている。",
+]
+
+NOTES_CHILD = [
+    "放課後等デイサービス週3回利用。学習支援が中心。",
+    "児童発達支援利用中。言語発達の遅れあり。",
+    "放課後等デイサービスで運動療育を実施。",
+    "保育所等訪問支援を利用。園との連携が重要。",
+    "居宅訪問型児童発達支援を利用。外出困難。",
+    "放課後等デイサービス週5回利用。社会性の向上が目標。",
+    "児童発達支援で感覚統合療法を受けている。",
+    "特別支援学校に在籍。放デイで宿題支援。",
+    "医療的ケアが必要。訪問看護と併用。",
+    "ASD診断あり。コミュニケーション支援が必要。",
+]
+
+SCHEDULE_TYPES = ["面談", "訪問", "モニタリング", "電話", "会議", "その他"]
+SCHEDULE_TYPE_WEIGHTS = [30, 25, 15, 20, 8, 2]
+
+LOCATIONS = [
+    "事務所", "ご自宅", "相談支援センターみらい", "市役所 福祉課",
+    "就労支援事業所", "デイサービスほほえみ", "GHにじ", "オンライン",
+    "病院 外来", "学校", "保健センター", "児童発達支援センター",
+]
 
 
 def seed():
@@ -32,7 +107,7 @@ def seed():
         db.query(User).delete()
         db.commit()
 
-        # ── Users（ログインユーザー）─────────────────────────────
+        # ── Users ──────────────────────────────────────────────────
         user_admin = User(
             email="admin@g-ranche.jp",
             password_hash=hash_password("admin123"),
@@ -53,9 +128,9 @@ def seed():
         )
         db.add_all([user_admin, user_staff1, user_staff2])
         db.commit()
-        print("ユーザー登録完了: 3名（admin × 1, staff × 2）")
+        print("ユーザー登録完了: 3名")
 
-        # ── Staff ────────────────────────────────────────────────
+        # ── Staff ──────────────────────────────────────────────────
         staff1 = Staff(
             name="田中 花子",
             email="tanaka.hanako@welfare.example.jp",
@@ -72,60 +147,63 @@ def seed():
         db.commit()
         db.refresh(staff1)
         db.refresh(staff2)
+        staff_ids = [staff1.id, staff2.id]
         print(f"スタッフ登録完了: {staff1.name}, {staff2.name}")
 
-        # ── Clients ──────────────────────────────────────────────
+        # ── Clients（200名）─────────────────────────────────────────
         today = date.today()
+        random.seed(42)  # 再現性のため固定シード
 
-        # 個人情報（DBには保存しない。JSONマッピング用）
-        personal_data = [
-            {
-                "family_name": "山田", "given_name": "太郎",
-                "family_name_kana": "ヤマダ", "given_name_kana": "タロウ",
-                "birth_date": "1980-04-15", "certificate_number": "1311000001",
-                "gender": "男性", "client_type": "者",
-                "staff_id": staff1.id, "status": "active",
-                "notes": "車椅子使用。住宅改修済み。就労継続支援B型利用中。",
-            },
-            {
-                "family_name": "佐藤", "given_name": "美咲",
-                "family_name_kana": "サトウ", "given_name_kana": "ミサキ",
-                "birth_date": "1995-08-20", "certificate_number": "1311000002",
-                "gender": "女性", "client_type": "者",
-                "staff_id": staff1.id, "status": "active",
-                "notes": "統合失調症。服薬管理支援が必要。週2回のデイケア利用中。",
-            },
-            {
-                "family_name": "伊藤", "given_name": "健二",
-                "family_name_kana": "イトウ", "given_name_kana": "ケンジ",
-                "birth_date": "1988-12-03", "certificate_number": "1311000003",
-                "gender": "男性", "client_type": "者",
-                "staff_id": staff2.id, "status": "active",
-                "notes": "グループホーム入居中。就労継続支援A型で農作業に従事。",
-            },
-            {
-                "family_name": "渡辺", "given_name": "さくら",
-                "family_name_kana": "ワタナベ", "given_name_kana": "サクラ",
-                "birth_date": "2011-03-25", "certificate_number": "1311000004",
-                "gender": "女性", "client_type": "児",
-                "staff_id": staff2.id, "status": "active",
-                "notes": "ASD・ADHD診断あり。就労移行支援利用中。コミュニケーション支援が必要。",
-            },
-            {
-                "family_name": "中村", "given_name": "隆史",
-                "family_name_kana": "ナカムラ", "given_name_kana": "タカシ",
-                "birth_date": "2018-11-08", "certificate_number": "1311000005",
-                "gender": "男性", "client_type": "児",
-                "staff_id": staff1.id, "status": "active",
-                "notes": "パーキンソン病。症状は中等度。訪問介護・デイサービス利用中。",
-            },
-        ]
+        personal_data_list = []
+        used_names = set()
 
-        # ハッシュ生成してDBに保存（個人情報はDBに入れない）
+        for i in range(200):
+            # ユニークな名前を生成
+            while True:
+                family = random.choice(FAMILY_NAMES)
+                gender = random.choice(["男性", "女性"])
+                if gender == "男性":
+                    given = random.choice(GIVEN_NAMES_MALE)
+                else:
+                    given = random.choice(GIVEN_NAMES_FEMALE)
+                full_name = f"{family[0]}{given[0]}"
+                if full_name not in used_names:
+                    used_names.add(full_name)
+                    break
+
+            # 児/者 の割合: 約30%が児
+            client_type = "児" if random.random() < 0.3 else "者"
+
+            # 生年月日: 者は1950-2005, 児は2008-2022
+            if client_type == "者":
+                birth_year = random.randint(1950, 2005)
+            else:
+                birth_year = random.randint(2008, 2022)
+            birth_month = random.randint(1, 12)
+            birth_day = random.randint(1, 28)
+            birth_date = f"{birth_year}-{birth_month:02d}-{birth_day:02d}"
+
+            cert_number = f"131100{i + 1:04d}"
+
+            # ステータス: 90%がactive, 10%がinactive
+            status = "active" if random.random() < 0.9 else "inactive"
+
+            notes = random.choice(NOTES_CHILD if client_type == "児" else NOTES_ADULT)
+
+            personal_data_list.append({
+                "family_name": family[0], "given_name": given[0],
+                "family_name_kana": family[1], "given_name_kana": given[1],
+                "birth_date": birth_date, "certificate_number": cert_number,
+                "gender": gender, "client_type": client_type,
+                "staff_id": random.choice(staff_ids), "status": status,
+                "notes": notes,
+            })
+
+        # ハッシュ生成してDBに保存
         pseudonym_mapping = {}
         clients_list = []
 
-        for pd in personal_data:
+        for pd in personal_data_list:
             h = generate_hash(pd["certificate_number"], pd["birth_date"])
             pseudonym_mapping[h] = {
                 "family_name": pd["family_name"],
@@ -135,6 +213,9 @@ def seed():
                 "birth_date": pd["birth_date"],
                 "certificate_number": pd["certificate_number"],
             }
+            end_date = None
+            if pd["status"] == "inactive":
+                end_date = today - timedelta(days=random.randint(30, 365))
             client = Client(
                 pseudonym_hash=h,
                 gender=pd["gender"],
@@ -142,6 +223,7 @@ def seed():
                 staff_id=pd["staff_id"],
                 status=pd["status"],
                 notes=pd["notes"],
+                end_date=end_date,
             )
             clients_list.append(client)
 
@@ -154,265 +236,147 @@ def seed():
         with open("seed_pseudonym_mapping.json", "w", encoding="utf-8") as f:
             json.dump(pseudonym_mapping, f, ensure_ascii=False, indent=2)
 
-        client1, client2, client3, client4, client5 = clients_list
-        print("利用者登録完了: 5名")
+        active_clients = [c for c in clients_list if c.status == "active"]
+        print(f"利用者登録完了: {len(clients_list)}名（active: {len(active_clients)}名）")
         print(f"マッピングファイル出力: seed_pseudonym_mapping.json（{len(pseudonym_mapping)}名分）")
 
-        # ── Support Plans ────────────────────────────────────────
-        plan1 = SupportPlan(
-            client_id=client1.id,
-            plan_date=date(2024, 4, 1),
-            long_term_goal="地域で自立した生活を送り、希望する職場で継続して就労できる。",
-            short_term_goal="体調を安定させながら、就労継続支援B型での作業を週4日継続する。住宅改修後の環境に慣れる。",
-            service_contents=[
-                {"service": "就労継続支援B型", "provider": "ワークショップひまわり", "frequency": "週4日"},
-                {"service": "居宅介護（身体介護）", "provider": "ヘルパーステーションなごや", "frequency": "週3回・各1時間"},
-                {"service": "計画相談支援", "provider": "相談支援センターみらい", "frequency": "月1回"},
-            ],
-            monitoring_interval=6,
-            next_monitoring_date=today + timedelta(days=45),
-            status="active",
-        )
-        plan2 = SupportPlan(
-            client_id=client2.id,
-            plan_date=date(2024, 1, 15),
-            long_term_goal="症状を安定させ、地域の中で安心して生活できる環境を整える。",
-            short_term_goal="服薬を継続し、週2回のデイケアを欠かさず利用する。生活リズムを整える。",
-            service_contents=[
-                {"service": "精神科デイケア", "provider": "メンタルクリニックさくら", "frequency": "週2日"},
-                {"service": "居宅介護（生活援助）", "provider": "ケアサポートやまて", "frequency": "週2回・各2時間"},
-                {"service": "相談支援", "provider": "相談支援センターみらい", "frequency": "月1回"},
-            ],
-            monitoring_interval=3,
-            next_monitoring_date=today + timedelta(days=15),
-            status="active",
-        )
-        plan3 = SupportPlan(
-            client_id=client3.id,
-            plan_date=date(2023, 7, 1),
-            long_term_goal="グループホームでの安定した生活を継続しながら、就労収入を増やす。",
-            short_term_goal="就労継続支援A型での作業を週5日継続する。グループホームでの共同生活ルールを守る。",
-            service_contents=[
-                {"service": "就労継続支援A型", "provider": "農園フレンズ", "frequency": "週5日"},
-                {"service": "共同生活援助（グループホーム）", "provider": "GHにじ", "frequency": "常時"},
-                {"service": "計画相談支援", "provider": "相談支援センターみらい", "frequency": "月1回"},
-            ],
-            monitoring_interval=6,
-            next_monitoring_date=today + timedelta(days=90),
-            status="active",
-        )
-        plan4 = SupportPlan(
-            client_id=client4.id,
-            plan_date=date(2023, 6, 1),
-            long_term_goal="一般就労を実現し、自分に合った働き方で社会参加できる。",
-            short_term_goal="就労移行支援での訓練を週4日継続する。コミュニケーションスキルを向上させる。",
-            service_contents=[
-                {"service": "就労移行支援", "provider": "ジョブスタート東京", "frequency": "週4日"},
-                {"service": "相談支援", "provider": "相談支援センターみらい", "frequency": "月1回"},
-            ],
-            monitoring_interval=3,
-            next_monitoring_date=today + timedelta(days=20),
-            status="active",
-        )
-        plan5 = SupportPlan(
-            client_id=client5.id,
-            plan_date=date(2024, 1, 1),
-            long_term_goal="在宅での生活を継続しながら、症状の進行を遅らせ、QOLを維持する。",
-            short_term_goal="訪問介護・デイサービスを活用し、日常生活動作を維持する。介護者（妻）の負担軽減を図る。",
-            service_contents=[
-                {"service": "訪問介護（身体介護・生活援助）", "provider": "ケアステーションもみじ", "frequency": "週5回"},
-                {"service": "通所介護（デイサービス）", "provider": "デイサービスほほえみ", "frequency": "週3日"},
-                {"service": "福祉用具貸与", "provider": "福祉用具センター", "frequency": "常時"},
-                {"service": "計画相談支援", "provider": "相談支援センターみらい", "frequency": "月1回"},
-            ],
-            monitoring_interval=6,
-            next_monitoring_date=today + timedelta(days=60),
-            status="active",
-        )
-        db.add_all([plan1, plan2, plan3, plan4, plan5])
-        db.commit()
-        print("支援計画登録完了: 5件")
-
-        # ── Case Records ─────────────────────────────────────────
-        now = datetime.now()
-
-        records = [
-            CaseRecord(
-                client_id=client1.id,
-                staff_id=staff1.id,
-                record_date=now - timedelta(days=30),
-                record_type="面談",
-                content="山田太郎さんと事業所にて面談を実施。就労継続支援B型での作業状況を確認。木工作業に意欲的に取り組んでおり、月収が先月より5,000円増加したとのこと。体調は安定しており、住宅改修後の生活にも慣れてきた様子。ヘルパーの支援についても満足しているとのこと。次回モニタリングに向けて目標達成状況を整理した。",
-                summary="就労B型での作業継続、収入増加。体調安定。",
-                next_action="次回モニタリングまでに就労継続支援B型のサービス担当者会議を調整する。",
-            ),
-            CaseRecord(
-                client_id=client1.id,
-                staff_id=staff1.id,
-                record_date=now - timedelta(days=7),
-                record_type="電話",
-                content="山田太郎さんより電話あり。先週から腰痛が悪化しており、ヘルパーの支援時間を増やしたいとの相談。主治医への受診を勧め、診断書を持参のうえ再度相談することを伝えた。",
-                summary="腰痛悪化によりヘルパー時間増加の相談あり。",
-                next_action="主治医受診後に状態確認の電話をする。必要に応じてサービス変更の手続きを進める。",
-            ),
-            CaseRecord(
-                client_id=client2.id,
-                staff_id=staff1.id,
-                record_date=now - timedelta(days=20),
-                record_type="訪問",
-                content="佐藤美咲さんのご自宅を訪問。生活状況と服薬状況を確認。処方薬は適切に服用できており、デイケアも週2回継続できている。最近、近所の方と少し話せるようになったとのことで、社会的接触の範囲が広がっている。室内は整理整頓されており、生活は安定している様子。母親も同席し、家族支援の状況も確認した。",
-                summary="服薬継続、デイケア継続。近所との交流が増加。生活安定。",
-                next_action="3ヶ月後のモニタリングを計画。デイケアの担当者と連携して社会参加の機会を増やす方法を検討する。",
-            ),
-            CaseRecord(
-                client_id=client2.id,
-                staff_id=staff1.id,
-                record_date=now - timedelta(days=3),
-                record_type="電話",
-                content="デイケア担当の福祉士より連絡あり。佐藤美咲さんが先週から体調不良のためデイケアを欠席しているとのこと。ご本人に電話したところ、風邪症状はあるが精神症状の悪化はないとのこと。主治医への受診を勧め、回復したらデイケア再開するよう伝えた。",
-                summary="風邪によりデイケア欠席。精神症状の悪化はなし。",
-                next_action="回復確認の電話を3日後に実施する。",
-            ),
-            CaseRecord(
-                client_id=client3.id,
-                staff_id=staff2.id,
-                record_date=now - timedelta(days=45),
-                record_type="モニタリング",
-                content="伊藤健二さんのモニタリングを実施。グループホームの世話人、就労継続支援A型の担当者も同席。就労A型での農作業は週5日継続できており、作業能力も向上している。グループホームでの生活も安定しており、他の入居者とも良好な関係を築いている。収入は月3万円程度。貯金も少しずつできており、将来の一人暮らしへの意欲が高まっている。",
-                summary="就労A型週5日継続。GH生活安定。将来の一人暮らしへの意欲あり。",
-                next_action="次回モニタリングは6ヶ月後。一人暮らしに向けた情報収集を開始する。",
-            ),
-            CaseRecord(
-                client_id=client4.id,
-                staff_id=staff2.id,
-                record_date=now - timedelta(days=14),
-                record_type="面談",
-                content="渡辺さくらさんと面談。就労移行支援での訓練状況を確認。パソコン作業や電話応対の練習を継続中。コミュニケーション面では、支援員の助言を受けながら改善が見られる。アルバイトの実習先として近くのデータ入力会社での実習を来月から開始する予定とのこと。緊張しているようだったが、前向きな気持ちがあることを確認した。",
-                summary="就労移行支援継続。来月より実習開始予定。",
-                next_action="実習開始後1週間で状況確認の電話をする。就労支援担当者と密に連携する。",
-            ),
-            CaseRecord(
-                client_id=client5.id,
-                staff_id=staff1.id,
-                record_date=now - timedelta(days=10),
-                record_type="訪問",
-                content="中村隆史さんのご自宅を訪問。妻の由美子さんも同席。パーキンソン病の症状について確認。歩行の不安定さが若干増しているとのこと。訪問介護の身体介護では入浴・排泄支援が中心で、ヘルパーの支援に満足しているとのこと。デイサービスでのリハビリにも意欲的に参加中。妻の介護負担について確認したところ、夜間の対応が大変とのことで、レスパイトケアの活用を提案した。",
-                summary="症状やや進行。デイサービスのリハビリ継続。妻の介護負担あり。",
-                next_action="レスパイトケア（短期入所）の情報を収集し、次回の面談時に提案する。主治医と症状進行について情報共有する。",
-            ),
+        # ── Support Plans（activeな利用者全員に1件ずつ）──────────────
+        services_pool = [
+            {"service": "就労継続支援B型", "provider": "ワークショップひまわり", "frequency": "週4日"},
+            {"service": "就労継続支援A型", "provider": "農園フレンズ", "frequency": "週5日"},
+            {"service": "就労移行支援", "provider": "ジョブスタート東京", "frequency": "週4日"},
+            {"service": "生活介護", "provider": "デイセンターゆう", "frequency": "週5日"},
+            {"service": "居宅介護（身体介護）", "provider": "ヘルパーステーション", "frequency": "週3回"},
+            {"service": "居宅介護（生活援助）", "provider": "ケアサポートやまて", "frequency": "週2回"},
+            {"service": "精神科デイケア", "provider": "メンタルクリニックさくら", "frequency": "週2日"},
+            {"service": "共同生活援助", "provider": "GHにじ", "frequency": "常時"},
+            {"service": "放課後等デイサービス", "provider": "キッズスマイル", "frequency": "週3日"},
+            {"service": "児童発達支援", "provider": "こどもサポート", "frequency": "週2日"},
+            {"service": "訪問看護", "provider": "訪問看護ステーション", "frequency": "週1回"},
+            {"service": "計画相談支援", "provider": "相談支援センターみらい", "frequency": "月1回"},
         ]
+
+        plans = []
+        for c in active_clients:
+            plan_date = today - timedelta(days=random.randint(30, 365))
+            monitoring_interval = random.choice([3, 6])
+            next_monitoring = today + timedelta(days=random.randint(1, 180))
+            selected_services = random.sample(services_pool, k=random.randint(2, 4))
+            plan = SupportPlan(
+                client_id=c.id,
+                plan_date=plan_date,
+                long_term_goal="地域で安定した生活を送り、自分らしく社会参加できる。",
+                short_term_goal="現在のサービスを継続しながら、生活の質を向上させる。",
+                service_contents=selected_services,
+                monitoring_interval=monitoring_interval,
+                next_monitoring_date=next_monitoring,
+                status="active",
+            )
+            plans.append(plan)
+        db.add_all(plans)
+        db.commit()
+        print(f"支援計画登録完了: {len(plans)}件")
+
+        # ── Case Records（activeな利用者にランダムで1〜3件ずつ）───────
+        record_types = ["面談", "訪問", "電話", "モニタリング"]
+        record_contents = [
+            "サービス利用状況を確認。本人の体調は安定しており、現在の支援内容に満足しているとのこと。",
+            "ご自宅を訪問し生活状況を確認。室内は整理されており、日常生活に大きな問題はない様子。",
+            "電話にて近況確認。特に変わりなく、通所も継続できているとのこと。",
+            "モニタリングを実施。目標の達成状況を確認し、今後の方針について話し合った。",
+            "担当者会議に向けた事前ヒアリングを実施。ご本人の希望を改めて確認した。",
+            "体調不良による欠席が続いているため状況確認。主治医への受診を勧めた。",
+            "家族から相談あり。今後のサービス利用について一緒に検討した。",
+        ]
+
+        records = []
+        now = datetime.now()
+        for c in active_clients:
+            num_records = random.randint(1, 3)
+            for _ in range(num_records):
+                days_ago = random.randint(1, 90)
+                record = CaseRecord(
+                    client_id=c.id,
+                    staff_id=c.staff_id,
+                    record_date=now - timedelta(days=days_ago),
+                    record_type=random.choice(record_types),
+                    content=random.choice(record_contents),
+                    summary="状況確認済み。特記事項なし。",
+                    next_action="次回定期連絡にて状況確認を行う。",
+                )
+                records.append(record)
         db.add_all(records)
         db.commit()
-        print("支援記録登録完了: 7件")
+        print(f"支援記録登録完了: {len(records)}件")
 
-        # ── Schedules ────────────────────────────────────────────
-        # Today's date for creating realistic schedules
+        # ── Schedules（今月を中心に、前後1ヶ月分）──────────────────
         today_dt = datetime.combine(today, datetime.min.time())
+        schedule_titles_by_type = {
+            "面談": ["{name} 定期面談", "{name} 相談", "{name} 支援計画説明"],
+            "訪問": ["{name} 自宅訪問", "{name} 生活状況確認訪問"],
+            "モニタリング": ["{name} モニタリング", "{name} 定期モニタリング"],
+            "電話": ["{name} 近況確認電話", "{name} 体調確認電話", "{name} 連絡"],
+            "会議": ["サービス担当者会議", "ケース会議", "事業所連絡会", "チームミーティング"],
+            "その他": ["書類整理", "研修", "移動"],
+        }
 
-        schedules_data = [
-            # Today's schedules
-            Schedule(
-                client_id=client1.id,
-                staff_id=staff1.id,
-                title="山田太郎さん 腰痛フォローアップ電話",
-                schedule_type="電話",
-                start_datetime=today_dt.replace(hour=10, minute=0),
-                end_datetime=today_dt.replace(hour=10, minute=30),
-                location="事務所",
-                notes="腰痛悪化についてのフォローアップ。主治医受診の結果を確認する。",
-                status="scheduled",
-            ),
-            Schedule(
-                client_id=client2.id,
-                staff_id=staff1.id,
-                title="佐藤美咲さん 体調確認電話",
-                schedule_type="電話",
-                start_datetime=today_dt.replace(hour=14, minute=0),
-                end_datetime=today_dt.replace(hour=14, minute=20),
-                location="事務所",
-                notes="風邪からの回復状況確認。デイケア再開の見通しを確認する。",
-                status="scheduled",
-            ),
-            Schedule(
-                client_id=client5.id,
-                staff_id=staff1.id,
-                title="中村隆史さん レスパイトケア情報提供面談",
-                schedule_type="面談",
-                start_datetime=today_dt.replace(hour=15, minute=30),
-                end_datetime=today_dt.replace(hour=16, minute=30),
-                location="中村さんご自宅",
-                notes="短期入所のパンフレットを持参。妻の介護負担軽減策を相談する。",
-                status="scheduled",
-            ),
-            # This week
-            Schedule(
-                client_id=client3.id,
-                staff_id=staff2.id,
-                title="伊藤健二さん グループホーム訪問",
-                schedule_type="訪問",
-                start_datetime=(today_dt + timedelta(days=2)).replace(hour=13, minute=0),
-                end_datetime=(today_dt + timedelta(days=2)).replace(hour=14, minute=0),
-                location="GHにじ",
-                notes="一人暮らしへの意欲について詳しく聞く。生活スキルの現状確認。",
-                status="scheduled",
-            ),
-            Schedule(
-                client_id=client4.id,
-                staff_id=staff2.id,
-                title="渡辺さくらさん 実習前面談",
-                schedule_type="面談",
-                start_datetime=(today_dt + timedelta(days=3)).replace(hour=10, minute=0),
-                end_datetime=(today_dt + timedelta(days=3)).replace(hour=11, minute=0),
-                location="相談支援センターみらい",
-                notes="来月からの実習について不安を解消する。就労移行支援の担当者も同席予定。",
-                status="scheduled",
-            ),
-            Schedule(
-                client_id=None,
-                staff_id=staff1.id,
-                title="サービス担当者会議（山田太郎さん関係）",
-                schedule_type="会議",
-                start_datetime=(today_dt + timedelta(days=5)).replace(hour=14, minute=0),
-                end_datetime=(today_dt + timedelta(days=5)).replace(hour=16, minute=0),
-                location="ワークショップひまわり 会議室",
-                notes="腰痛悪化に伴うサービス変更について協議。就労継続支援B型、訪問介護の担当者が参加予定。",
-                status="scheduled",
-            ),
-            # Next week
-            Schedule(
-                client_id=client2.id,
-                staff_id=staff1.id,
-                title="佐藤美咲さん モニタリング訪問",
-                schedule_type="モニタリング",
-                start_datetime=(today_dt + timedelta(days=10)).replace(hour=11, minute=0),
-                end_datetime=(today_dt + timedelta(days=10)).replace(hour=12, minute=30),
-                location="佐藤さんご自宅",
-                notes="3ヶ月モニタリング。デイケア参加状況、服薬状況、社会参加の状況を確認する。",
-                status="scheduled",
-            ),
-            Schedule(
-                client_id=client4.id,
-                staff_id=staff2.id,
-                title="渡辺さくらさん モニタリング面談",
-                schedule_type="モニタリング",
-                start_datetime=(today_dt + timedelta(days=12)).replace(hour=14, minute=0),
-                end_datetime=(today_dt + timedelta(days=12)).replace(hour=15, minute=30),
-                location="相談支援センターみらい",
-                notes="3ヶ月モニタリング。就労移行支援の進捗、実習準備状況を確認する。",
-                status="scheduled",
-            ),
-        ]
+        schedules_data = []
+        # 前月〜来月の60日間にスケジュールを分散
+        for day_offset in range(-30, 31):
+            target_date = today_dt + timedelta(days=day_offset)
+            # 土日はスケジュール少なめ
+            if target_date.weekday() >= 5:
+                num_schedules = random.randint(0, 1)
+            else:
+                num_schedules = random.randint(2, 6)
+
+            for _ in range(num_schedules):
+                schedule_type = random.choices(SCHEDULE_TYPES, weights=SCHEDULE_TYPE_WEIGHTS, k=1)[0]
+                hour = random.randint(9, 17)
+                minute = random.choice([0, 15, 30, 45])
+                duration = random.choice([30, 45, 60, 90, 120])
+
+                start = target_date.replace(hour=hour, minute=minute)
+                end = start + timedelta(minutes=duration)
+
+                # 会議・その他は利用者なし、それ以外はランダムで利用者を紐づけ
+                if schedule_type in ("会議", "その他"):
+                    client_id = None
+                    titles = schedule_titles_by_type[schedule_type]
+                    title = random.choice(titles)
+                else:
+                    client = random.choice(active_clients)
+                    client_id = client.id
+                    # クライアント名をマッピングから取得
+                    personal = pseudonym_mapping.get(client.pseudonym_hash, {})
+                    name = f"{personal.get('family_name', '?')}{personal.get('given_name', '?')}さん"
+                    titles = schedule_titles_by_type[schedule_type]
+                    title = random.choice(titles).format(name=name)
+
+                schedule = Schedule(
+                    client_id=client_id,
+                    staff_id=random.choice(staff_ids),
+                    title=title,
+                    schedule_type=schedule_type,
+                    start_datetime=start,
+                    end_datetime=end,
+                    location=random.choice(LOCATIONS),
+                    notes="",
+                    status="scheduled",
+                )
+                schedules_data.append(schedule)
+
         db.add_all(schedules_data)
         db.commit()
-        print("スケジュール登録完了: 8件")
+        print(f"スケジュール登録完了: {len(schedules_data)}件")
 
-        print("\n=== シードデータの登録が完了しました ===")
+        print(f"\n=== シードデータの登録が完了しました ===")
         print(f"ユーザー: 3名（admin × 1, staff × 2）")
         print(f"スタッフ: 2名")
-        print(f"利用者: 5名")
-        print(f"支援計画: 5件")
-        print(f"支援記録: 7件")
-        print(f"スケジュール: 8件（本日: 3件）")
+        print(f"利用者: {len(clients_list)}名（active: {len(active_clients)}名）")
+        print(f"支援計画: {len(plans)}件")
+        print(f"支援記録: {len(records)}件")
+        print(f"スケジュール: {len(schedules_data)}件")
 
     except Exception as e:
         db.rollback()

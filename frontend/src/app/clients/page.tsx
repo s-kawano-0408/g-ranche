@@ -29,7 +29,8 @@ export default function ClientsPage() {
         if (personal) {
           const fullName = `${personal.family_name}${personal.given_name}`;
           const fullNameKana = `${personal.family_name_kana}${personal.given_name_kana}`;
-          matchSearch = fullName.includes(search) || fullNameKana.includes(search);
+          matchSearch =
+            fullName.includes(search) || fullNameKana.includes(search);
         } else {
           matchSearch = false;
         }
@@ -49,9 +50,13 @@ export default function ClientsPage() {
     result.sort((a, b) => {
       const pa = resolve(a.pseudonym_hash);
       const pb = resolve(b.pseudonym_hash);
-      const kanaA = pa ? `${pa.family_name_kana}${pa.given_name_kana}` : '\uffff';
-      const kanaB = pb ? `${pb.family_name_kana}${pb.given_name_kana}` : '\uffff';
-      return kanaA.localeCompare(kanaB, 'ja');
+      const kanaA = pa
+        ? `${pa.family_name_kana}${pa.given_name_kana}`
+        : "\uffff";
+      const kanaB = pb
+        ? `${pb.family_name_kana}${pb.given_name_kana}`
+        : "\uffff";
+      return kanaA.localeCompare(kanaB, "ja");
     });
 
     return result;
