@@ -33,6 +33,8 @@ export default function MonthlyTasksPage() {
   };
   const [year, setYear] = useState(new Date().getFullYear());
   const [clientTypeFilter, setClientTypeFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [kanaFilter, setKanaFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -57,9 +59,45 @@ export default function MonthlyTasksPage() {
     loadData();
   }, [loadData]);
 
-  const filteredClients = clientTypeFilter === 'all'
-    ? clients
-    : clients.filter((c) => c.client_type === clientTypeFilter);
+  const KANA_GROUPS = [
+    { label: 'ア', chars: 'アイウエオ' },
+    { label: 'カ', chars: 'カキクケコガギグゲゴ' },
+    { label: 'サ', chars: 'サシスセソザジズゼゾ' },
+    { label: 'タ', chars: 'タチツテトダヂヅデド' },
+    { label: 'ナ', chars: 'ナニヌネノ' },
+    { label: 'ハ', chars: 'ハヒフヘホバビブベボパピプペポ' },
+    { label: 'マ', chars: 'マミムメモ' },
+    { label: 'ヤ', chars: 'ヤユヨ' },
+    { label: 'ラ', chars: 'ラリルレロ' },
+    { label: 'ワ', chars: 'ワヲン' },
+  ];
+
+  const filteredClients = clients
+    .filter((c) => {
+      if (clientTypeFilter !== 'all' && c.client_type !== clientTypeFilter) return false;
+
+      const p = resolve(c.pseudonym_hash);
+      if (!p) return search === '';
+
+      const fullName = `${p.family_name}${p.given_name}`;
+      const fullKana = `${p.family_name_kana}${p.given_name_kana}`;
+
+      if (search && !fullName.includes(search) && !fullKana.includes(search)) return false;
+
+      if (kanaFilter !== 'all') {
+        const group = KANA_GROUPS.find((g) => g.label === kanaFilter);
+        if (group && !group.chars.includes(fullKana.charAt(0))) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const pa = resolve(a.pseudonym_hash);
+      const pb = resolve(b.pseudonym_hash);
+      const kanaA = pa ? `${pa.family_name_kana}${pa.given_name_kana}` : '\uffff';
+      const kanaB = pb ? `${pb.family_name_kana}${pb.given_name_kana}` : '\uffff';
+      return kanaA.localeCompare(kanaB, 'ja');
+    });
 
   const filteredClientIds = new Set(filteredClients.map((c) => c.id));
 
@@ -119,21 +157,52 @@ export default function MonthlyTasksPage() {
         </div>
       </div>
 
-      {/* 児/者フィルター */}
-      <div className="flex gap-2 mb-4">
-        {['all', '児', '者'].map((type) => (
-          <button
-            key={type}
-            onClick={() => setClientTypeFilter(type)}
-            className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
-              clientTypeFilter === type
-                ? 'bg-teal-600 text-white border-teal-600'
-                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            {type === 'all' ? 'すべて' : type}
-          </button>
-        ))}
+      {/* 検索バー */}
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="名前・フリガナで検索..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-md px-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+        />
+      </div>
+
+      {/* 児/者フィルター + ア行タブ */}
+      <div className="flex flex-wrap items-center gap-4 mb-4">
+        <div className="flex gap-2">
+          {['all', '児', '者'].map((type) => (
+            <button
+              key={type}
+              onClick={() => setClientTypeFilter(type)}
+              className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+                clientTypeFilter === type
+                  ? 'bg-teal-600 text-white border-teal-600'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {type === 'all' ? 'すべて' : type}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-6 border-l border-slate-300" />
+
+        <div className="flex gap-1 flex-wrap">
+          {['all', ...KANA_GROUPS.map((g) => g.label)].map((label) => (
+            <button
+              key={label}
+              onClick={() => setKanaFilter(label)}
+              className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
+                kanaFilter === label
+                  ? 'bg-teal-600 text-white border-teal-600'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {label === 'all' ? '全' : label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 凡例 */}
