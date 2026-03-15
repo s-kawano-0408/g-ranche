@@ -1,8 +1,12 @@
+'use client';
+
+import { useState } from 'react';
 import { Client } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { User, Calendar } from 'lucide-react';
 import { calcAge, calcGrade } from '@/lib/utils';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 import Link from 'next/link';
 
 interface ClientCardProps {
@@ -15,11 +19,21 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 };
 
 export default function ClientCard({ client }: ClientCardProps) {
+  const { resolve } = usePseudonym();
+  const personal = resolve(client.pseudonym_hash);
+  const [showHash, setShowHash] = useState(false);
+
   const status = statusConfig[client.status] || { label: client.status, variant: 'outline' as const };
-  const fullName = `${client.family_name} ${client.given_name}`;
-  const fullNameKana = `${client.family_name_kana || ''} ${client.given_name_kana || ''}`.trim();
-  const age = calcAge(client.birth_date);
-  const grade = client.client_type === '児' ? calcGrade(client.birth_date) : null;
+
+  // マッピングがあれば本名表示、なければ仮名表示
+  const fullName = personal
+    ? `${personal.family_name} ${personal.given_name}`
+    : '仮名利用者';
+  const fullNameKana = personal
+    ? `${personal.family_name_kana} ${personal.given_name_kana}`
+    : '';
+  const age = personal ? calcAge(personal.birth_date) : null;
+  const grade = personal && client.client_type === '児' ? calcGrade(personal.birth_date) : null;
 
   return (
     <Link href={`/clients/${client.id}`}>
@@ -30,7 +44,17 @@ export default function ClientCard({ client }: ClientCardProps) {
               <User size={20} className="text-teal-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">{fullName}</h3>
+              <h3
+                className="font-semibold text-gray-900 cursor-pointer"
+                onClick={(e) => {
+                  if (!personal) {
+                    e.preventDefault();
+                    setShowHash(!showHash);
+                  }
+                }}
+              >
+                {!personal && showHash ? client.pseudonym_hash : fullName}
+              </h3>
               <p className="text-xs text-gray-400">{fullNameKana}</p>
             </div>
           </div>
@@ -53,8 +77,8 @@ export default function ClientCard({ client }: ClientCardProps) {
             {grade && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-pink-50 text-pink-600 font-medium">{grade}</span>
             )}
-            {client.certificate_number && (
-              <span className="text-xs text-gray-400">受給者証: {client.certificate_number}</span>
+            {personal?.certificate_number && (
+              <span className="text-xs text-gray-400">受給者証: {personal.certificate_number}</span>
             )}
           </div>
         </div>

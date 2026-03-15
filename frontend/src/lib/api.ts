@@ -36,7 +36,7 @@ export async function getClient(id: number): Promise<Client> {
   return fetchAPI<Client>(`/api/clients/${id}`);
 }
 
-export async function createClient(data: Omit<Client, "id">): Promise<Client> {
+export async function createClient(data: Record<string, unknown>): Promise<Client> {
   return fetchAPI<Client>("/api/clients", {
     method: "POST",
     body: JSON.stringify(data),

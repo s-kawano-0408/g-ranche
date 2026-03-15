@@ -1,7 +1,7 @@
 from datetime import datetime, date, timedelta
 from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import select, and_, func
 
 from models.client import Client
 from models.staff import Staff
@@ -48,40 +48,25 @@ class ToolExecutor:
     def _client_to_dict(self, client: Client) -> Dict[str, Any]:
         return {
             "id": client.id,
-            "name": client.name,
-            "name_kana": client.name_kana,
-            "birth_date": self._format_date(client.birth_date),
+            "pseudonym_hash": client.pseudonym_hash,
             "gender": client.gender,
-            "disability_type": client.disability_type,
-            "disability_certificate_level": client.disability_certificate_level,
-            "address": client.address,
-            "phone": client.phone,
-            "emergency_contact": client.emergency_contact,
-            "emergency_phone": client.emergency_phone,
+            "client_type": client.client_type,
             "staff_id": client.staff_id,
             "status": client.status,
-            "intake_date": self._format_date(client.intake_date),
+            "end_date": self._format_date(client.end_date),
             "notes": client.notes,
         }
 
     def _search_clients(
         self,
-        name: Optional[str] = None,
-        disability_type: Optional[str] = None,
+        client_type: Optional[str] = None,
         status: Optional[str] = "active",
     ) -> Dict[str, Any]:
         stmt = select(Client)
         conditions = []
 
-        if name:
-            conditions.append(
-                or_(
-                    Client.name.contains(name),
-                    Client.name_kana.contains(name),
-                )
-            )
-        if disability_type:
-            conditions.append(Client.disability_type == disability_type)
+        if client_type:
+            conditions.append(Client.client_type == client_type)
         if status:
             conditions.append(Client.status == status)
 
@@ -192,14 +177,14 @@ class ToolExecutor:
 
         schedules_list = []
         for s in schedules:
-            # Get client name if available
-            client_name = None
+            # Get client hash if available
+            client_hash = None
             if s.client_id:
                 client_obj = self.db.execute(
                     select(Client).where(Client.id == s.client_id)
                 ).scalar_one_or_none()
                 if client_obj:
-                    client_name = client_obj.name
+                    client_hash = client_obj.pseudonym_hash
 
             # Get staff name
             staff_name = None
@@ -219,7 +204,7 @@ class ToolExecutor:
                 "notes": s.notes,
                 "status": s.status,
                 "client_id": s.client_id,
-                "client_name": client_name,
+                "client_hash": client_hash,
                 "staff_id": s.staff_id,
                 "staff_name": staff_name,
             })
@@ -258,7 +243,7 @@ class ToolExecutor:
             records_list.append({
                 "id": r.id,
                 "client_id": r.client_id,
-                "client_name": client_obj.name if client_obj else None,
+                "client_hash": client_obj.pseudonym_hash if client_obj else None,
                 "staff_id": r.staff_id,
                 "staff_name": staff_obj.name if staff_obj else None,
                 "record_date": self._format_date(r.record_date),
@@ -387,8 +372,8 @@ class ToolExecutor:
                 seen_client_ids.add(client.id)
                 clients_list.append({
                     "client_id": client.id,
-                    "client_name": client.name,
-                    "disability_type": client.disability_type,
+                    "client_hash": client.pseudonym_hash,
+                    "client_type": client.client_type,
                     "next_monitoring_date": self._format_date(plan.next_monitoring_date),
                     "days_until_monitoring": (plan.next_monitoring_date - today).days,
                     "staff_id": client.staff_id,

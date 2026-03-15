@@ -12,6 +12,7 @@ import { ArrowLeft, Plus, Sparkles, User, Calendar } from 'lucide-react';
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
 import { getClient, getSupportPlans, getCaseRecords, getSchedules, createCaseRecord, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: '利用中', color: 'bg-teal-100 text-teal-700' },
@@ -35,15 +36,11 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function formatAge(birthDate: string) {
-  const age = calcAge(birthDate);
-  return age !== null ? `(${age}歳)` : '';
-}
-
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = Number(params.id);
+  const { resolve } = usePseudonym();
 
   const [client, setClient] = useState<Client | null>(null);
   const [plans, setPlans] = useState<SupportPlan[]>([]);
@@ -53,6 +50,7 @@ export default function ClientDetailPage() {
   const [showRecordForm, setShowRecordForm] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState('');
+  const [showHash, setShowHash] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -113,15 +111,17 @@ export default function ClientDetailPage() {
     );
   }
 
-  const fullName = `${client.family_name} ${client.given_name}`;
-  const fullNameKana = `${client.family_name_kana || ''} ${client.given_name_kana || ''}`.trim();
+  const personal = resolve(client.pseudonym_hash);
+  const fullName = personal ? `${personal.family_name} ${personal.given_name}` : '仮名利用者';
+  const fullNameKana = personal ? `${personal.family_name_kana} ${personal.given_name_kana}` : '';
   const status = statusConfig[client.status] || { label: client.status, color: 'bg-gray-100 text-gray-600' };
 
   return (
     <div className="flex flex-col flex-1">
       <Header
-        title={fullName}
+        title={!personal && showHash ? client.pseudonym_hash : fullName}
         description={fullNameKana}
+        onTitleClick={!personal ? () => setShowHash(!showHash) : undefined}
       >
         <span className={`text-sm px-2 py-1 rounded font-medium ${client.client_type === '児' ? 'bg-pink-100 text-pink-700' : 'bg-sky-100 text-sky-700'}`}>
           {client.client_type}
@@ -152,17 +152,28 @@ export default function ClientDetailPage() {
                   <User size={24} className="text-teal-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">{fullName}</h3>
+                  <h3
+                    className={`font-semibold text-gray-900 ${!personal ? 'cursor-pointer hover:text-teal-600' : ''}`}
+                    onClick={() => { if (!personal) setShowHash(!showHash); }}
+                  >
+                    {!personal && showHash ? client.pseudonym_hash : fullName}
+                  </h3>
                   <p className="text-sm text-gray-500">{fullNameKana}</p>
                 </div>
               </div>
               <dl>
-                <InfoRow label="生年月日" value={client.birth_date ? `${new Date(client.birth_date).toLocaleDateString('ja-JP')} ${formatAge(client.birth_date)}` : '-'} />
-                {client.client_type === '児' && calcGrade(client.birth_date) && (
-                  <InfoRow label="学年" value={calcGrade(client.birth_date) || undefined} />
+                {personal ? (
+                  <>
+                    <InfoRow label="生年月日" value={`${new Date(personal.birth_date).toLocaleDateString('ja-JP')} (${calcAge(personal.birth_date)}歳)`} />
+                    {client.client_type === '児' && calcGrade(personal.birth_date) && (
+                      <InfoRow label="学年" value={calcGrade(personal.birth_date) || undefined} />
+                    )}
+                    <InfoRow label="受給者証番号" value={personal.certificate_number} />
+                  </>
+                ) : (
+                  <InfoRow label="仮名化" value="マッピングが読み込まれていません。設定ページからインポートしてください。" />
                 )}
                 <InfoRow label="性別" value={client.gender} />
-                <InfoRow label="受給者証番号" value={client.certificate_number} />
                 {client.end_date && (
                   <InfoRow label="終了日" value={new Date(client.end_date).toLocaleDateString('ja-JP')} />
                 )}

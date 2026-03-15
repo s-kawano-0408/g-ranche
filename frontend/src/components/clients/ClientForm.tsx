@@ -1,23 +1,38 @@
 'use client';
 
 import { useState } from 'react';
-import { Client } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { usePseudonym, ClientPersonalInfo } from '@/contexts/PseudonymContext';
+
+// フォームのデータ型（個人情報を含む — APIに送るため）
+interface ClientFormData {
+  family_name: string;
+  given_name: string;
+  family_name_kana: string;
+  given_name_kana: string;
+  birth_date: string;
+  certificate_number: string;
+  gender: string;
+  client_type: string;
+  staff_id: number;
+  status: string;
+  end_date: string;
+  notes: string;
+}
 
 interface ClientFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Client, 'id'>) => Promise<void>;
-  initialData?: Partial<Client>;
+  onSubmit: (data: ClientFormData) => Promise<{ pseudonym_hash: string }>;
+  initialData?: Partial<ClientFormData>;
   title?: string;
 }
 
-// パート1: 初期値（フォームを開いたときの空の状態）
-const defaultData: Omit<Client, 'id'> = {
+const defaultData: ClientFormData = {
   family_name: '',
   given_name: '',
   family_name_kana: '',
@@ -32,45 +47,65 @@ const defaultData: Omit<Client, 'id'> = {
   notes: '',
 };
 
-// 生年月日スクロール用の選択肢を生成
 const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 100 }, (_, i) => currentYear - i);  // 今年〜100年前
-const months = Array.from({ length: 12 }, (_, i) => i + 1);            // 1〜12月
-const days = Array.from({ length: 31 }, (_, i) => i + 1);              // 1〜31日
+const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
+const months = Array.from({ length: 12 }, (_, i) => i + 1);
+const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
 export default function ClientForm({ open, onClose, onSubmit, initialData, title = '新規利用者登録' }: ClientFormProps) {
-  const [form, setForm] = useState<Omit<Client, 'id'>>({ ...defaultData, ...initialData });
+  const [form, setForm] = useState<ClientFormData>({ ...defaultData, ...initialData });
   const [loading, setLoading] = useState(false);
+  const { addMapping } = usePseudonym();
 
-  // パート2: ロジック
-
-  // 入力欄の値を更新する関数
-  const set = (key: keyof Omit<Client, 'id'>, value: string | number | null) => {
+  const set = (key: keyof ClientFormData, value: string | number | null) => {
     setForm(prev => ({ ...prev, [key]: value ?? '' }));
   };
 
-  // 生年月日を年・月・日に分解する（"2000-05-15" → { year: "2000", month: "5", day: "15" }）
   const birthParts = form.birth_date ? form.birth_date.split('-') : ['', '', ''];
   const [birthYear, setBirthYear] = useState(birthParts[0] || '');
   const [birthMonth, setBirthMonth] = useState(birthParts[1] ? String(Number(birthParts[1])) : '');
   const [birthDay, setBirthDay] = useState(birthParts[2] ? String(Number(birthParts[2])) : '');
 
-  // 年・月・日のどれかが変わったら、birth_date を組み立て直す
   const updateBirthDate = (y: string, m: string, d: string) => {
     if (y && m && d) {
       set('birth_date', `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
     }
   };
 
-  // 保存ボタン押したときの処理
   const statusMap: Record<string, string> = { '利用中': 'active', '利用終了': 'inactive' };
 
+  // JSONファイルを自動ダウンロードする
+  const downloadMapping = (hash: string, personal: ClientPersonalInfo) => {
+    const data = { [hash]: personal };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pseudonym_${hash.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleSubmit = async () => {
-    // 必須項目チェック
     if (!form.family_name || !form.given_name || !form.family_name_kana || !form.given_name_kana || !form.birth_date || !form.client_type || !form.certificate_number) return;
     try {
       setLoading(true);
-      await onSubmit({ ...form, status: statusMap[form.status] || form.status });
+      const submitData = { ...form, status: statusMap[form.status] || form.status };
+      const result = await onSubmit(submitData);
+
+      // マッピングを追加 + JSONファイルを自動ダウンロード
+      const personal: ClientPersonalInfo = {
+        family_name: form.family_name,
+        given_name: form.given_name,
+        family_name_kana: form.family_name_kana,
+        given_name_kana: form.given_name_kana,
+        birth_date: form.birth_date,
+        certificate_number: form.certificate_number,
+      };
+      addMapping(result.pseudonym_hash, personal);
+      downloadMapping(result.pseudonym_hash, personal);
+
       onClose();
       setForm(defaultData);
     } catch (e) {
@@ -82,7 +117,6 @@ export default function ClientForm({ open, onClose, onSubmit, initialData, title
 
   const isValid = form.family_name && form.given_name && form.family_name_kana && form.given_name_kana && form.birth_date && form.client_type && form.certificate_number;
 
-  // パート3: 見た目
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

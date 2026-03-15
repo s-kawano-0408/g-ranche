@@ -8,14 +8,9 @@ export interface Staff {
 
 export interface Client {
   id: number;
-  family_name: string;
-  given_name: string;
-  family_name_kana: string;
-  given_name_kana: string;
-  birth_date: string;
+  pseudonym_hash: string;
   gender: string;
   client_type: string;
-  certificate_number: string;
   staff_id: number;
   status: string;
   end_date: string;

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePseudonym } from "@/contexts/PseudonymContext";
 
 export default function ClientsPage() {
   const { clients, loading, error, addClient } = useClients();
@@ -17,13 +18,22 @@ export default function ClientsPage() {
   const [clientTypeFilter, setClientTypeFilter] = useState<string>("すべて");
   const [statusFilter, setStatusFilter] = useState<string>("利用中");
   const { user } = useAuth();
+  const { resolve } = usePseudonym();
 
   const filtered = useMemo(() => {
-    return clients.filter((c) => {
-      const fullName = `${c.family_name}${c.given_name}`;
-      const fullNameKana = `${c.family_name_kana || ""}${c.given_name_kana || ""}`;
-      const matchSearch =
-        !search || fullName.includes(search) || fullNameKana.includes(search);
+    const result = clients.filter((c) => {
+      // 名前検索（マッピングがあるクライアントのみ検索対象）
+      let matchSearch = true;
+      if (search) {
+        const personal = resolve(c.pseudonym_hash);
+        if (personal) {
+          const fullName = `${personal.family_name}${personal.given_name}`;
+          const fullNameKana = `${personal.family_name_kana}${personal.given_name_kana}`;
+          matchSearch = fullName.includes(search) || fullNameKana.includes(search);
+        } else {
+          matchSearch = false;
+        }
+      }
       const matchClientType =
         clientTypeFilter === "すべて" || c.client_type === clientTypeFilter;
       const statusMap: Record<string, string> = {
@@ -34,7 +44,18 @@ export default function ClientsPage() {
         statusFilter === "すべて" || c.status === statusMap[statusFilter];
       return matchSearch && matchClientType && matchStatus;
     });
-  }, [clients, search, clientTypeFilter, statusFilter]);
+
+    // マッピングのフリガナでソート（マッピングがない人は末尾）
+    result.sort((a, b) => {
+      const pa = resolve(a.pseudonym_hash);
+      const pb = resolve(b.pseudonym_hash);
+      const kanaA = pa ? `${pa.family_name_kana}${pa.given_name_kana}` : '\uffff';
+      const kanaB = pb ? `${pb.family_name_kana}${pb.given_name_kana}` : '\uffff';
+      return kanaA.localeCompare(kanaB, 'ja');
+    });
+
+    return result;
+  }, [clients, search, clientTypeFilter, statusFilter, resolve]);
 
   return (
     <div className="flex flex-col flex-1">
@@ -97,7 +118,8 @@ export default function ClientsPage() {
         open={showForm}
         onClose={() => setShowForm(false)}
         onSubmit={async (data) => {
-          await addClient(data);
+          const newClient = await addClient(data);
+          return { pseudonym_hash: newClient.pseudonym_hash };
         }}
       />
     </div>

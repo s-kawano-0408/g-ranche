@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { PseudonymProvider } from '@/contexts/PseudonymContext';
 
 // 認証チェック付きのレイアウト
 function LayoutContent({ children }: { children: React.ReactNode }) {
@@ -57,7 +58,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <LayoutContent>{children}</LayoutContent>
+      <PseudonymProvider>
+        <LayoutContent>{children}</LayoutContent>
+      </PseudonymProvider>
     </AuthProvider>
   );
 }

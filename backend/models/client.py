@@ -8,14 +8,9 @@ class Client(Base):
     __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, index=True)
-    family_name = Column(String, nullable=False)
-    given_name = Column(String, nullable=False)
-    family_name_kana = Column(String, nullable=False)
-    given_name_kana = Column(String, nullable=False)
-    birth_date = Column(Date, nullable=False)
+    pseudonym_hash = Column(String, unique=True, nullable=False)
     gender = Column(String)
     client_type = Column(String, nullable=False)  # "児"/"者"
-    certificate_number = Column(String, nullable=False)
     staff_id = Column(Integer, ForeignKey("staffs.id"))
     status = Column(String, default="active")  # "active"/"inactive"
     notes = Column(Text)

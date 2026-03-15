@@ -2,6 +2,7 @@
 Seed script to populate the database with sample data.
 Run with: python seed.py
 """
+import json
 from datetime import datetime, date, timedelta
 
 from database import SessionLocal, engine, Base
@@ -14,6 +15,7 @@ from models.case_record import CaseRecord
 from models.schedule import Schedule
 from models.user import User
 from auth import hash_password
+from pseudonym import generate_hash
 
 
 def seed():
@@ -75,76 +77,86 @@ def seed():
         # ── Clients ──────────────────────────────────────────────
         today = date.today()
 
-        client1 = Client(
-            family_name="山田",
-            given_name="太郎",
-            family_name_kana="ヤマダ",
-            given_name_kana="タロウ",
-            birth_date=date(1980, 4, 15),
-            gender="男性",
-            client_type="者",
-            certificate_number="1311000001",
-            staff_id=staff1.id,
-            status="active",
-            notes="車椅子使用。住宅改修済み。就労継続支援B型利用中。",
-        )
-        client2 = Client(
-            family_name="佐藤",
-            given_name="美咲",
-            family_name_kana="サトウ",
-            given_name_kana="ミサキ",
-            birth_date=date(1995, 8, 20),
-            gender="女性",
-            client_type="者",
-            certificate_number="1311000002",
-            staff_id=staff1.id,
-            status="active",
-            notes="統合失調症。服薬管理支援が必要。週2回のデイケア利用中。",
-        )
-        client3 = Client(
-            family_name="伊藤",
-            given_name="健二",
-            family_name_kana="イトウ",
-            given_name_kana="ケンジ",
-            birth_date=date(1988, 12, 3),
-            gender="男性",
-            client_type="者",
-            certificate_number="1311000003",
-            staff_id=staff2.id,
-            status="active",
-            notes="グループホーム入居中。就労継続支援A型で農作業に従事。",
-        )
-        client4 = Client(
-            family_name="渡辺",
-            given_name="さくら",
-            family_name_kana="ワタナベ",
-            given_name_kana="サクラ",
-            birth_date=date(2011, 3, 25),
-            gender="女性",
-            client_type="児",
-            certificate_number="1311000004",
-            staff_id=staff2.id,
-            status="active",
-            notes="ASD・ADHD診断あり。就労移行支援利用中。コミュニケーション支援が必要。",
-        )
-        client5 = Client(
-            family_name="中村",
-            given_name="隆史",
-            family_name_kana="ナカムラ",
-            given_name_kana="タカシ",
-            birth_date=date(2018, 11, 8),
-            gender="男性",
-            client_type="児",
-            certificate_number="1311000005",
-            staff_id=staff1.id,
-            status="active",
-            notes="パーキンソン病。症状は中等度。訪問介護・デイサービス利用中。",
-        )
-        db.add_all([client1, client2, client3, client4, client5])
+        # 個人情報（DBには保存しない。JSONマッピング用）
+        personal_data = [
+            {
+                "family_name": "山田", "given_name": "太郎",
+                "family_name_kana": "ヤマダ", "given_name_kana": "タロウ",
+                "birth_date": "1980-04-15", "certificate_number": "1311000001",
+                "gender": "男性", "client_type": "者",
+                "staff_id": staff1.id, "status": "active",
+                "notes": "車椅子使用。住宅改修済み。就労継続支援B型利用中。",
+            },
+            {
+                "family_name": "佐藤", "given_name": "美咲",
+                "family_name_kana": "サトウ", "given_name_kana": "ミサキ",
+                "birth_date": "1995-08-20", "certificate_number": "1311000002",
+                "gender": "女性", "client_type": "者",
+                "staff_id": staff1.id, "status": "active",
+                "notes": "統合失調症。服薬管理支援が必要。週2回のデイケア利用中。",
+            },
+            {
+                "family_name": "伊藤", "given_name": "健二",
+                "family_name_kana": "イトウ", "given_name_kana": "ケンジ",
+                "birth_date": "1988-12-03", "certificate_number": "1311000003",
+                "gender": "男性", "client_type": "者",
+                "staff_id": staff2.id, "status": "active",
+                "notes": "グループホーム入居中。就労継続支援A型で農作業に従事。",
+            },
+            {
+                "family_name": "渡辺", "given_name": "さくら",
+                "family_name_kana": "ワタナベ", "given_name_kana": "サクラ",
+                "birth_date": "2011-03-25", "certificate_number": "1311000004",
+                "gender": "女性", "client_type": "児",
+                "staff_id": staff2.id, "status": "active",
+                "notes": "ASD・ADHD診断あり。就労移行支援利用中。コミュニケーション支援が必要。",
+            },
+            {
+                "family_name": "中村", "given_name": "隆史",
+                "family_name_kana": "ナカムラ", "given_name_kana": "タカシ",
+                "birth_date": "2018-11-08", "certificate_number": "1311000005",
+                "gender": "男性", "client_type": "児",
+                "staff_id": staff1.id, "status": "active",
+                "notes": "パーキンソン病。症状は中等度。訪問介護・デイサービス利用中。",
+            },
+        ]
+
+        # ハッシュ生成してDBに保存（個人情報はDBに入れない）
+        pseudonym_mapping = {}
+        clients_list = []
+
+        for pd in personal_data:
+            h = generate_hash(pd["certificate_number"], pd["birth_date"])
+            pseudonym_mapping[h] = {
+                "family_name": pd["family_name"],
+                "given_name": pd["given_name"],
+                "family_name_kana": pd["family_name_kana"],
+                "given_name_kana": pd["given_name_kana"],
+                "birth_date": pd["birth_date"],
+                "certificate_number": pd["certificate_number"],
+            }
+            client = Client(
+                pseudonym_hash=h,
+                gender=pd["gender"],
+                client_type=pd["client_type"],
+                staff_id=pd["staff_id"],
+                status=pd["status"],
+                notes=pd["notes"],
+            )
+            clients_list.append(client)
+
+        db.add_all(clients_list)
         db.commit()
-        for c in [client1, client2, client3, client4, client5]:
+        for c in clients_list:
             db.refresh(c)
+
+        # JSONマッピングファイル出力
+        with open("seed_pseudonym_mapping.json", "w", encoding="utf-8") as f:
+            json.dump(pseudonym_mapping, f, ensure_ascii=False, indent=2)
+
+        client1, client2, client3, client4, client5 = clients_list
         print("利用者登録完了: 5名")
+        print(f"マッピングファイル出力: seed_pseudonym_mapping.json（{len(pseudonym_mapping)}名分）")
 
         # ── Support Plans ────────────────────────────────────────
         plan1 = SupportPlan(

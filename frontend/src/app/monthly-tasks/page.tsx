@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getClients, getMonthlyTasks, upsertMonthlyTask, deleteMonthlyTask } from '@/lib/api';
 import { Client, MonthlyTask } from '@/types';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const TASK_TYPES = ['モニタ', '更新', '新規', '更+モニ', '新+モニ', 'その他', '最終モニタ'] as const;
 
@@ -17,8 +18,19 @@ const TASK_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function MonthlyTasksPage() {
+  const { resolve } = usePseudonym();
   const [clients, setClients] = useState<Client[]>([]);
   const [tasks, setTasks] = useState<MonthlyTask[]>([]);
+  const [showHashIds, setShowHashIds] = useState<Set<number>>(new Set());
+
+  const toggleHash = (clientId: number) => {
+    setShowHashIds(prev => {
+      const next = new Set(prev);
+      if (next.has(clientId)) next.delete(clientId);
+      else next.add(clientId);
+      return next;
+    });
+  };
   const [year, setYear] = useState(new Date().getFullYear());
   const [clientTypeFilter, setClientTypeFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -175,10 +187,26 @@ export default function MonthlyTasksPage() {
                 className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
               >
                 <td className="sticky left-0 z-10 px-3 py-1.5 text-sm text-slate-600 border-r border-slate-200 bg-inherit whitespace-nowrap">
-                  {`${client.family_name_kana || ''} ${client.given_name_kana || ''}`.trim()}
+                  {(() => {
+                    const p = resolve(client.pseudonym_hash);
+                    return p ? `${p.family_name_kana} ${p.given_name_kana}` : '-';
+                  })()}
                 </td>
-                <td className="sticky left-[120px] z-10 px-3 py-1.5 text-sm font-medium text-slate-800 border-r border-slate-200 bg-inherit whitespace-nowrap shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                  {`${client.family_name} ${client.given_name}`}
+                <td
+                  className="sticky left-[120px] z-10 px-3 py-1.5 text-sm font-medium text-slate-800 border-r border-slate-200 bg-inherit whitespace-nowrap shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]"
+                >
+                  {(() => {
+                    const p = resolve(client.pseudonym_hash);
+                    if (p) return `${p.family_name} ${p.given_name}`;
+                    return (
+                      <span
+                        className="cursor-pointer hover:text-teal-600"
+                        onClick={() => toggleHash(client.id)}
+                      >
+                        {showHashIds.has(client.id) ? client.pseudonym_hash : '仮名利用者'}
+                      </span>
+                    );
+                  })()}
                 </td>
                 {months.map((m) => {
                   const task = getTask(client.id, m);

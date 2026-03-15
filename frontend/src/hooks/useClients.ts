@@ -27,7 +27,7 @@ export function useClients() {
     fetchClients();
   }, [fetchClients]);
 
-  const addClient = useCallback(async (data: Omit<Client, 'id'>) => {
+  const addClient = useCallback(async (data: Record<string, unknown>) => {
     const newClient = await createClient(data);
     setClients(prev => [...prev, newClient]);
     return newClient;

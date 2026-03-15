@@ -56,6 +56,8 @@ g-ranche/
 │   ├── main.py              # FastAPI エントリポイント
 │   ├── database.py          # SQLite + SQLAlchemy セットアップ
 │   ├── seed.py              # サンプルデータ（スタッフ2名・利用者5名・計画・記録・スケジュール）
+│   ├── pseudonym.py         # 仮名化ハッシュ生成ユーティリティ
+│   ├── migrate_pseudonym.py # 既存DBの仮名化マイグレーション
 │   ├── models/              # SQLAlchemy テーブル定義
 │   │   ├── client.py        # 利用者
 │   │   ├── staff.py         # スタッフ
@@ -86,6 +88,9 @@ g-ranche/
         │   ├── schedules/   # スケジュール
         │   ├── records/     # 支援記録
         │   └── ai/          # AIアシスタント
+        ├── contexts/        # Reactコンテキスト
+        │   ├── AuthContext.tsx      # 認証状態管理
+        │   └── PseudonymContext.tsx # 仮名化マッピング管理
         ├── components/      # UIコンポーネント
         │   └── layout/      # Sidebar, Header
         ├── hooks/           # useAIStream など
@@ -126,21 +131,41 @@ g-ranche/
 
 ## データベース (SQLite)
 - `staffs` - スタッフ情報
-- `clients` - 利用者情報
-  - family_name, given_name（姓・名）必須
-  - family_name_kana, given_name_kana（フリガナ）必須
-  - birth_date（生年月日）必須
+- `clients` - 利用者情報（仮名化済み）
+  - pseudonym_hash（仮名化ハッシュ）必須・ユニーク
   - gender（性別）
   - client_type（"児"/"者"）必須
-  - certificate_number（受給者証番号）必須
   - staff_id, status（active/inactive）, end_date（終了日＝論理削除）, notes
+  - ※ 姓名・フリガナ・生年月日・受給者証番号はDBに保存しない
 - `support_plans` - 個別支援計画書
 - `case_records` - 支援記録
 - `schedules` - スケジュール
 - `monthly_tasks` - 月間業務タスク（client_id, year, month, task_type）
 - `ai_conversations` - AIチャット履歴
 
+## 仮名化（個人情報保護）
+DBに個人情報を保存せず、ハッシュ値のみ保存する仕組み。
+
+### 仕組み
+- `certificate_number + birth_date` → SHA-256 → 16文字ハッシュ
+- 個人情報はブラウザの `localStorage` + JSONファイルでローカル管理
+- ハッシュは決定的（同じ入力なら同じ結果）なので、JSONを紛失しても受給者証番号+生年月日から復元可能
+
+### JSONマッピングファイル
+- 新規登録時に自動ダウンロード
+- 設定ページからインポート/エクスポート/復元が可能
+- マッピングがない利用者は「仮名利用者」と表示される
+
+### マイグレーション（既存DB → 仮名化）
+```bash
+cd backend
+~/.local/bin/uv run python migrate_pseudonym.py
+```
+- 既存の個人情報をJSONに退避してDBから削除
+- 出力された `pseudonym_mapping.json` を安全に保管すること
+
 ## 注意事項
 - `.env`ファイルに`ANTHROPIC_API_KEY`を設定すること
 - データベースファイル: `backend/g_ranche.db`
 - 開発時はCORSを全許可（本番環境では要変更）
+- `seed.py` 実行時に `seed_pseudonym_mapping.json` が出力される（フロントでインポートして使用）
