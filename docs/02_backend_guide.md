@@ -29,11 +29,13 @@ class Client(Base):
     __tablename__ = "clients"   # ← SQLiteのテーブル名
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    disability_type = Column(String)   # "身体障害" など
+    pseudonym_hash = Column(String, unique=True, nullable=False)  # 仮名化ハッシュ
+    gender = Column(String)
+    client_type = Column(String, nullable=False)  # "児"/"者"
     staff_id = Column(Integer, ForeignKey("staffs.id"))  # 外部キー
     status = Column(String, default="active")
 
+    # ※ 姓名・フリガナ・生年月日・受給者証番号はDBに保存しない（仮名化）
     # リレーションシップ（JOINなしで関連データにアクセスできる）
     staff = relationship("Staff", back_populates="clients")
     support_plans = relationship("SupportPlan", back_populates="client")
@@ -58,20 +60,24 @@ email = Column(String)
 
 ```python
 # schemas/client.py
-class ClientBase(BaseModel):
-    name: str
-    disability_type: Optional[str] = None
-    status: str = "active"
+class ClientCreate(BaseModel):
+    family_name: str           # APIで受け取る（ハッシュ生成のため）
+    given_name: str
+    birth_date: date
+    certificate_number: str
+    client_type: str
+    # ... 他のフィールド
 
-class ClientCreate(ClientBase):
-    pass   # 作成時はそのまま
+class ClientUpdate(BaseModel):
+    gender: Optional[str] = None   # 更新可能なフィールドのみ
+    client_type: Optional[str] = None
+    # ... （個人情報フィールドは含まない）
 
-class ClientUpdate(ClientBase):
-    name: Optional[str] = None   # 更新時は全フィールドが任意
-
-class ClientResponse(ClientBase):
+class ClientResponse(BaseModel):
     id: int
-    created_at: datetime
+    pseudonym_hash: str        # ハッシュだけ返す（個人情報なし）
+    client_type: str
+    created_at: Optional[datetime] = None
     model_config = {"from_attributes": True}  # SQLAlchemyオブジェクトを変換
 ```
 
@@ -161,8 +167,8 @@ class ToolExecutor:
         handler = tool_map.get(tool_name)
         return handler(**tool_input)   # Claudeが決めた引数で実行
 
-    def _search_clients(self, name=None, disability_type=None, status="active"):
-        # 実際のDBクエリ
+    def _search_clients(self, client_type=None, status="active"):
+        # 実際のDBクエリ（名前検索はDB側では不可 → フロントで対応）
         stmt = select(Client)
         if name:
             stmt = stmt.where(Client.name.contains(name))

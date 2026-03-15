@@ -87,14 +87,17 @@ export async function createSomething(data: SomeType) {
 ```typescript
 export interface Client {
   id: number
-  name: string
-  disability_type: string
+  pseudonym_hash: string    // 仮名化ハッシュ（個人情報はDBに保存しない）
+  gender: string
+  client_type: string       // "児"/"者"
   status: string
   // ... バックエンドの ClientResponse と合わせる
 }
 ```
 
 **バックエンドにフィールドを追加したら、ここも追加してください。**
+**注意:** 個人情報（姓名・フリガナ・生年月日・受給者証番号）はDBに保存しないため、
+`Client` 型には含まれません。表示には `usePseudonym()` フックでマッピングを参照してください。
 
 ---
 
@@ -305,13 +308,15 @@ import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
 ### カードに情報を追加する
 
 ```tsx
-// ClientCard.tsx
+// ClientCard.tsx（仮名化対応）
+const { resolve } = usePseudonym();
+const personal = resolve(client.pseudonym_hash);
+
 <Card>
   <CardContent>
-    <p>{client.name}</p>
-    <p>{client.disability_type}</p>
-    {/* ↓ 追加したい情報 */}
-    <p>{client.phone}</p>
+    <p>{personal ? `${personal.family_name} ${personal.given_name}` : '仮名利用者'}</p>
+    <p>{client.client_type}</p>
+    {/* 個人情報はマッピングから取得する */}
   </CardContent>
 </Card>
 ```

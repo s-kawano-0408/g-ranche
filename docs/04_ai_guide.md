@@ -50,10 +50,10 @@
 ### ツールの実行（ai/tool_executor.py）
 
 ```python
-def _search_clients(self, name=None, disability_type=None, status="active"):
+def _search_clients(self, client_type=None, status="active"):
     stmt = select(Client)
-    if name:
-        stmt = stmt.where(Client.name.contains(name))
+    if client_type:
+        stmt = stmt.where(Client.client_type == client_type)
     clients = self.db.execute(stmt).scalars().all()
 
     # 必ずJSON化できる形式で返す
@@ -117,7 +117,7 @@ class ToolExecutor:
         # 誕生日の月日だけで比較するロジックを書く
         clients = self.db.execute(select(Client).where(...)).scalars().all()
         return {
-            "clients": [{"id": c.id, "name": c.name, "birth_date": str(c.birth_date)} for c in clients],
+            "clients": [{"id": c.id, "pseudonym_hash": c.pseudonym_hash} for c in clients],
             "total": len(clients),
         }
 ```
