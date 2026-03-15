@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Noto_Sans_JP } from 'next/font/google';
 import './globals.css';
-import Sidebar from '@/components/layout/Sidebar';
+import LayoutWrapper from '@/components/layout/LayoutWrapper';
 
 const notoSansJP = Noto_Sans_JP({
   subsets: ['latin'],
@@ -23,12 +23,7 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning>
       <body className={`${notoSansJP.variable} font-sans antialiased bg-gray-50`}>
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <div className="flex-1 ml-64 flex flex-col min-h-screen min-w-0">
-            {children}
-          </div>
-        </div>
+        <LayoutWrapper>{children}</LayoutWrapper>
       </body>
     </html>
   );
