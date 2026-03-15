@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { Schedule } from '@/types';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const typeColors: Record<string, string> = {
   面談: 'bg-blue-500',
@@ -23,12 +25,16 @@ const typeBgColors: Record<string, string> = {
 
 interface CalendarViewProps {
   schedules: Schedule[];
-  onDateClick?: (date: Date) => void;
+  onNewSchedule?: (date: string) => void;
+  onEditSchedule?: (schedule: Schedule) => void;
+  onDeleteSchedule?: (id: number) => void;
 }
 
-export default function CalendarView({ schedules, onDateClick }: CalendarViewProps) {
+export default function CalendarView({ schedules, onNewSchedule, onEditSchedule, onDeleteSchedule }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [dialogSchedules, setDialogSchedules] = useState<Schedule[]>([]);
+  const { resolve } = usePseudonym();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -55,6 +61,49 @@ export default function CalendarView({ schedules, onDateClick }: CalendarViewPro
 
   const today = new Date();
 
+  // dialogSchedules はダイアログ表示用（閉じるアニメーション中にちらつかないよう別管理）
+
+  const toLocalDateStr = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const formatDateLabel = (date: Date) => {
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日（${days[date.getDay()]}）`;
+  };
+
+  const formatTimeRange = (s: Schedule) => {
+    const start = new Date(s.start_datetime);
+    const end = new Date(s.end_datetime);
+    const fmt = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return `${fmt(start)} − ${fmt(end)}`;
+  };
+
+  const getClientName = (s: Schedule) => {
+    if (!s.client_id) return null;
+    const client = s.client;
+    if (client) {
+      const personal = resolve(client.pseudonym_hash);
+      return personal ? `${personal.family_name} ${personal.given_name}` : '仮名利用者';
+    }
+    return null;
+  };
+
+  const handleDateClick = (date: Date) => {
+    const daySchedules = getSchedulesForDate(date);
+    if (daySchedules.length === 0 && onNewSchedule) {
+      // スケジュールなし → 直接新規作成
+      onNewSchedule(toLocalDateStr(date));
+    } else {
+      // スケジュールあり → 一覧ダイアログ
+      setDialogSchedules(daySchedules);
+      setSelectedDate(date);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -62,9 +111,13 @@ export default function CalendarView({ schedules, onDateClick }: CalendarViewPro
         <Button variant="outline" size="icon" onClick={prevMonth}>
           <ChevronLeft size={16} />
         </Button>
-        <h3 className="font-semibold text-gray-900 text-lg">
+        <button
+          onClick={() => setCurrentDate(new Date())}
+          className="font-semibold text-gray-900 text-lg hover:text-teal-600 transition-colors cursor-pointer"
+          title="今月に戻る"
+        >
           {year}年{month + 1}月
-        </h3>
+        </button>
         <Button variant="outline" size="icon" onClick={nextMonth}>
           <ChevronRight size={16} />
         </Button>
@@ -103,7 +156,7 @@ export default function CalendarView({ schedules, onDateClick }: CalendarViewPro
             <div
               key={day.toISOString()}
               className="bg-white min-h-[80px] p-1 cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => onDateClick?.(day)}
+              onClick={() => handleDateClick(day)}
             >
               <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${
                 isToday ? 'bg-teal-600 text-white' :
@@ -116,8 +169,7 @@ export default function CalendarView({ schedules, onDateClick }: CalendarViewPro
                 {daySchedules.slice(0, 2).map(s => (
                   <div
                     key={s.id}
-                    className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer border ${typeBgColors[s.schedule_type] || typeBgColors['その他']}`}
-                    onClick={e => { e.stopPropagation(); setSelectedSchedule(s); }}
+                    className={`text-xs px-1 py-0.5 rounded truncate border ${typeBgColors[s.schedule_type] || typeBgColors['その他']}`}
                   >
                     {s.title}
                   </div>
@@ -131,27 +183,69 @@ export default function CalendarView({ schedules, onDateClick }: CalendarViewPro
         })}
       </div>
 
-      {/* Detail popup */}
-      {selectedSchedule && (
-        <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center" onClick={() => setSelectedSchedule(null)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-3">
-              <h4 className="font-semibold text-gray-900">{selectedSchedule.title}</h4>
-              <button className="text-gray-400 hover:text-gray-600" onClick={() => setSelectedSchedule(null)}>✕</button>
+      {/* 日付のスケジュール一覧ダイアログ */}
+      <Dialog open={selectedDate !== null} onOpenChange={() => setSelectedDate(null)}>
+        <DialogContent className="max-w-sm overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>{selectedDate && formatDateLabel(selectedDate)}</DialogTitle>
+          </DialogHeader>
+
+          {dialogSchedules.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">この日の予定はありません</p>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto -mx-1 px-1">
+              {dialogSchedules.map(s => (
+                <div key={s.id} className="border rounded-lg p-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full border shrink-0 ${typeBgColors[s.schedule_type] || typeBgColors['その他']}`}>
+                      {s.schedule_type}
+                    </span>
+                    <span className="font-medium text-sm text-gray-900 truncate flex-1">{s.title}</span>
+                    <button
+                      onClick={() => { setSelectedDate(null); onEditSchedule?.(s); }}
+                      className="p-1 text-gray-400 hover:text-teal-600 rounded shrink-0"
+                      title="編集"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`「${s.title}」を削除しますか？`)) {
+                          onDeleteSchedule?.(s.id);
+                          setSelectedDate(null);
+                        }
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0"
+                      title="削除"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-0.5 pl-1">
+                    <p>{formatTimeRange(s)}</p>
+                    {getClientName(s) && <p>利用者: {getClientName(s)}</p>}
+                    {s.location && <p>場所: {s.location}</p>}
+                    {s.notes && <p>備考: {s.notes}</p>}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className={`inline-block text-xs px-2 py-1 rounded-full border mb-3 ${typeBgColors[selectedSchedule.schedule_type] || typeBgColors['その他']}`}>
-              {selectedSchedule.schedule_type}
-            </div>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p>開始: {new Date(selectedSchedule.start_datetime).toLocaleString('ja-JP')}</p>
-              <p>終了: {new Date(selectedSchedule.end_datetime).toLocaleString('ja-JP')}</p>
-              {selectedSchedule.location && <p>場所: {selectedSchedule.location}</p>}
-              {selectedSchedule.client && <p>利用者: {selectedSchedule.client.name}</p>}
-              {selectedSchedule.notes && <p>備考: {selectedSchedule.notes}</p>}
-            </div>
-          </div>
-        </div>
-      )}
+          )}
+
+          <Button
+            className="w-full bg-teal-600 hover:bg-teal-700 gap-2"
+            onClick={() => {
+              setSelectedDate(null);
+              if (selectedDate && onNewSchedule) {
+                onNewSchedule(toLocalDateStr(selectedDate));
+              }
+            }}
+          >
+            <Plus size={16} />
+            新規スケジュール
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

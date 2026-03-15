@@ -107,3 +107,18 @@ def update_schedule(
     db.commit()
     db.refresh(schedule)
     return schedule
+
+
+@router.delete("/{schedule_id}", status_code=204)
+def delete_schedule(
+    schedule_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)
+):
+    """スケジュールを削除します。"""
+    schedule = db.execute(
+        select(Schedule).where(Schedule.id == schedule_id)
+    ).scalar_one_or_none()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="スケジュールが見つかりません")
+
+    db.delete(schedule)
+    db.commit()

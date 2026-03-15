@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Schedule } from '@/types';
-import { getSchedules, createSchedule, updateSchedule } from '@/lib/api';
+import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from '@/lib/api';
 
 export function useSchedules(params?: { client_id?: number; start_date?: string; end_date?: string }) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -39,5 +39,10 @@ export function useSchedules(params?: { client_id?: number; start_date?: string;
     return updated;
   }, []);
 
-  return { schedules, loading, error, refetch: fetchSchedules, addSchedule, editSchedule };
+  const removeSchedule = useCallback(async (id: number) => {
+    await deleteSchedule(id);
+    setSchedules(prev => prev.filter(s => s.id !== id));
+  }, []);
+
+  return { schedules, loading, error, refetch: fetchSchedules, addSchedule, editSchedule, removeSchedule };
 }

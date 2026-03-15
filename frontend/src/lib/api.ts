@@ -139,6 +139,14 @@ export async function updateSchedule(
   });
 }
 
+export async function deleteSchedule(id: number): Promise<void> {
+  const token = localStorage.getItem("token");
+  await fetch(`${BASE_URL}/api/schedules/${id}`, {
+    method: "DELETE",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
 // Monthly Tasks
 export async function getMonthlyTasks(year?: number): Promise<MonthlyTask[]> {
   const query = year ? `?year=${year}` : "";
