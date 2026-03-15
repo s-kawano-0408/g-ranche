@@ -242,7 +242,9 @@ export default function ClientDetailPage() {
                           <p className="text-xs font-medium text-gray-500 mb-1">サービス内容</p>
                           <ul className="list-disc list-inside space-y-0.5">
                             {plan.service_contents.map((s, i) => (
-                              <li key={i} className="text-sm text-gray-700">{s}</li>
+                              <li key={i} className="text-sm text-gray-700">
+                                {typeof s === 'string' ? s : `${s.service}（${s.provider}・${s.frequency}）`}
+                              </li>
                             ))}
                           </ul>
                         </div>
