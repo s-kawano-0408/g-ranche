@@ -1,12 +1,25 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
-export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
+// 認証チェック付きのレイアウト
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const isLoginPage = pathname === '/login';
 
+  // 未ログインならログインページにリダイレクト
+  useEffect(() => {
+    if (!loading && !user && !isLoginPage) {
+      router.push('/login');
+    }
+  }, [user, loading, isLoginPage, router]);
+
+  // ログインページ: サイドバーなし
   if (isLoginPage) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -15,6 +28,21 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
     );
   }
 
+  // 読み込み中
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-slate-500">読み込み中...</p>
+      </div>
+    );
+  }
+
+  // 未ログイン（リダイレクト待ち）
+  if (!user) {
+    return null;
+  }
+
+  // ログイン済み: サイドバーあり
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -22,5 +50,14 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
         {children}
       </div>
     </div>
+  );
+}
+
+// AuthProviderでラップ
+export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <LayoutContent>{children}</LayoutContent>
+    </AuthProvider>
   );
 }

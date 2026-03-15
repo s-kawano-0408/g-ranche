@@ -21,7 +21,7 @@ export default function LoginPage() {
     try {
       const data = await login(email, password);
       localStorage.setItem("token", data.access_token);
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch {
       setError("ログインに失敗しました");
     } finally {
