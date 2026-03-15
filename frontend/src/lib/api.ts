@@ -170,9 +170,13 @@ export async function deleteMonthlyTask(
   year: number,
   month: number,
 ): Promise<void> {
+  const token = localStorage.getItem("token");
   await fetch(
     `${BASE_URL}/api/monthly-tasks?client_id=${clientId}&year=${year}&month=${month}`,
-    { method: "DELETE" },
+    {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
   );
 }
 
