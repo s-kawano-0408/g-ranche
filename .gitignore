@@ -27,6 +27,7 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+.env.production
 
 # ============================
 # Node.js / フロントエンド
@@ -46,3 +47,10 @@ frontend/out/
 Thumbs.db          # Windows が作るサムネイルファイル
 *.swp              # Vim の一時ファイル
 .vscode/           # VSCode の設定（個人設定なので共有しない）
+
+# ============================
+# Docker / デプロイ
+# ============================
+
+# PostgreSQLのデータ（個人データが入るので絶対にGit管理しない）
+pgdata/

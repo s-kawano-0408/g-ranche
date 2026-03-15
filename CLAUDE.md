@@ -44,17 +44,22 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env    # APIキーを設定
 - **uv が見つからない**: フルパス `~/.local/bin/uv` を使う
 
 ## 技術スタック
-- **Backend**: Python + FastAPI + SQLAlchemy + SQLite
+- **Backend**: Python + FastAPI + SQLAlchemy + SQLite（ローカル）/ PostgreSQL（本番）
 - **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS 4 + shadcn/ui
 - **AI**: Anthropic Python SDK (claude-sonnet-4-6) + Streaming + Tool Use + Prompt Caching
+- **デプロイ**: Docker Compose + Caddy（自動HTTPS）on Oracle Cloud VM
 
 ## プロジェクト構成
 ```
 g-ranche/
-├── start.sh                 # 一括起動スクリプト
+├── start.sh                 # 一括起動スクリプト（ローカル開発用）
+├── docker-compose.yml       # 本番デプロイ用（4サービス: db, backend, frontend, caddy）
+├── Caddyfile                # リバースプロキシ + 自動HTTPS設定
+├── .env.production          # 本番環境変数テンプレート（※Git管理外）
 ├── backend/
 │   ├── main.py              # FastAPI エントリポイント
-│   ├── database.py          # SQLite + SQLAlchemy セットアップ
+│   ├── database.py          # DB接続セットアップ（SQLite/PostgreSQL自動切替）
+│   ├── Dockerfile           # バックエンドのDockerイメージ定義
 │   ├── seed.py              # サンプルデータ（スタッフ2名・利用者5名・計画・記録・スケジュール）
 │   ├── pseudonym.py         # 仮名化ハッシュ生成ユーティリティ
 │   ├── migrate_pseudonym.py # 既存DBの仮名化マイグレーション
@@ -80,6 +85,7 @@ g-ranche/
 │       ├── tool_executor.py # ツール実行（DB操作）
 │       └── system_prompt.py # システムプロンプト（Prompt Caching対応）
 └── frontend/
+    ├── Dockerfile           # フロントエンドのDockerイメージ定義
     └── src/
         ├── app/             # Next.js App Router ページ
         │   ├── dashboard/   # ダッシュボード
@@ -129,7 +135,7 @@ g-ranche/
 - **Prompt Caching**: システムプロンプトをキャッシュしてコスト削減
 - **Multi-turn**: `ai_conversations`テーブルで会話履歴を永続化
 
-## データベース (SQLite)
+## データベース (SQLite / PostgreSQL)
 - `staffs` - スタッフ情報
 - `clients` - 利用者情報（仮名化済み）
   - pseudonym_hash（仮名化ハッシュ）必須・ユニーク
@@ -164,8 +170,29 @@ cd backend
 - 既存の個人情報をJSONに退避してDBから削除
 - 出力された `pseudonym_mapping.json` を安全に保管すること
 
+## デプロイ（本番環境）
+
+### 構成
+- Oracle Cloud VM（ARM, 1 OCPU, 6GB RAM）上で Docker Compose を使用
+- Caddy がリバースプロキシ + 自動HTTPS（Let's Encrypt）
+- PostgreSQL でデータ永続化（`./pgdata/`）
+
+### デプロイ手順
+```bash
+# VM上で実行
+git pull
+docker compose --env-file .env.production up -d --build
+```
+
+### Gitブランチ戦略
+- `main` — 本番（VMはこのブランチをデプロイ）
+- `develop` — 開発（ローカルで作業するブランチ）
+- 開発完了 → `main` にマージ → VMで `git pull` & `docker compose up`
+
 ## 注意事項
 - `.env`ファイルに`ANTHROPIC_API_KEY`を設定すること
-- データベースファイル: `backend/g_ranche.db`
-- 開発時はCORSを全許可（本番環境では要変更）
+- ローカル開発時のデータベースファイル: `backend/g_ranche.db`（SQLite）
+- 本番は PostgreSQL（`DATABASE_URL` 環境変数で切替）
+- CORSは環境変数 `ALLOWED_ORIGINS` で制御（未設定時は全許可）
 - `seed.py` 実行時に `seed_pseudonym_mapping.json` が出力される（フロントでインポートして使用）
+- `.env.production` と `pgdata/` は `.gitignore` でGit管理外
