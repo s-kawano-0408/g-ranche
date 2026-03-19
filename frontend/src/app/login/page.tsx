@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { login } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const { setKeyAndLoad } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,8 +19,14 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // ① APIでログイン → トークンを保存
       const data = await login(email, password);
       localStorage.setItem("token", data.access_token);
+
+      // ② パスワードから暗号鍵を導出 → IndexedDBのデータを復号
+      await setKeyAndLoad(password);
+
+      // ③ ダッシュボードへ遷移
       window.location.href = "/dashboard";
     } catch {
       setError("ログインに失敗しました");

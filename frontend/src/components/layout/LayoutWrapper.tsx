@@ -57,10 +57,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 // AuthProviderでラップ
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <PseudonymProvider>
+    <PseudonymProvider>
+      <AuthProvider>
         <LayoutContent>{children}</LayoutContent>
-      </PseudonymProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </PseudonymProvider>
   );
 }
