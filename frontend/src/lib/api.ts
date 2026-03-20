@@ -9,11 +9,10 @@ import {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("token");
   const res = await fetch(`${BASE_URL}${path}`, {
+    credentials: "include",  // Cookieを自動送信
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
     ...options,
@@ -54,7 +53,10 @@ export async function updateClient(
 }
 
 export async function deleteClient(id: number): Promise<void> {
-  await fetch(`${BASE_URL}/api/clients/${id}`, { method: "DELETE" });
+  await fetch(`${BASE_URL}/api/clients/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
 }
 
 // Support Plans
@@ -140,10 +142,9 @@ export async function updateSchedule(
 }
 
 export async function deleteSchedule(id: number): Promise<void> {
-  const token = localStorage.getItem("token");
   await fetch(`${BASE_URL}/api/schedules/${id}`, {
     method: "DELETE",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
   });
 }
 
@@ -170,12 +171,11 @@ export async function deleteMonthlyTask(
   year: number,
   month: number,
 ): Promise<void> {
-  const token = localStorage.getItem("token");
   await fetch(
     `${BASE_URL}/api/monthly-tasks?client_id=${clientId}&year=${year}&month=${month}`,
     {
       method: "DELETE",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "include",
     },
   );
 }
@@ -188,6 +188,7 @@ export async function streamAIChat(
 ): Promise<Response> {
   return fetch(`${BASE_URL}/api/ai/chat`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       message,
@@ -239,12 +240,18 @@ export async function changePassword(userId: number, newPassword: string): Promi
 export async function login(
   email: string,
   password: string,
-): Promise<{ access_token: string; token_type: string }> {
-  return fetchAPI<{ access_token: string; token_type: string }>(
+): Promise<{ message: string }> {
+  return fetchAPI<{ message: string }>(
     "/api/auth/login",
     {
       method: "POST",
       body: JSON.stringify({ email, password }),
     },
   );
+}
+
+export async function logout(): Promise<{ message: string }> {
+  return fetchAPI<{ message: string }>("/api/auth/logout", {
+    method: "POST",
+  });
 }

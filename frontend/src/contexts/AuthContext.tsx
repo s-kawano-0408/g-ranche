@@ -7,6 +7,7 @@ import { deriveKey, generateSalt } from '@/lib/crypto';
 import { loadEncrypted, saveEncrypted } from '@/lib/indexeddb';
 import { migrateFromLocalStorage } from '@/lib/migrate-storage';
 import { useAutoLock } from '@/hooks/useAutoLock';
+import { logout as apiLogout } from '@/lib/api';
 
 // ユーザー情報の型
 interface User {
@@ -40,33 +41,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 暗号鍵をメモリに保持（画面には関係ないのでuseRef）
   const keyRef = useRef<CryptoKey | null>(null);
 
-  // ページ読み込み時にトークンを確認して、ユーザー情報を取得する
+  // ページ読み込み時にCookieのトークンを確認して、ユーザー情報を取得する
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-
-      // トークンがなければ未ログイン
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        // トークンを使って GET /api/auth/me を呼ぶ
+        // Cookieが自動送信される → サーバーがトークンを検証
         const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         const res = await fetch(`${BASE_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         });
 
         if (res.ok) {
           const userData = await res.json();
           setUser(userData);
-        } else {
-          // トークンが無効（期限切れなど）→ 削除
-          localStorage.removeItem('token');
         }
       } catch {
-        localStorage.removeItem('token');
+        // ネットワークエラーなど
       } finally {
         setLoading(false);
       }
@@ -107,9 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setEncryptionKey(key);
   };
 
-  // ログアウト: トークン削除 → 鍵破棄 → マッピングクリア → ログイン画面へ
+  // ログアウト: Cookie削除 → 鍵破棄 → マッピングクリア → ログイン画面へ
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
+    apiLogout().catch(() => {}); // サーバーにCookie削除を依頼
     keyRef.current = null;
     clearMappings();
     setUser(null);

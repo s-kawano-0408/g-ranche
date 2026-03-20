@@ -3,8 +3,7 @@ from datetime import datetime, timedelta
 from jose import jwt
 import os
 
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -35,16 +34,17 @@ def verify_token(token: str) -> dict | None:
 
 # --- 共通の認証チェック（各ルーターで使う） ---
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """トークンを検証して、ログイン中のユーザーを返す。無効なら401エラー。"""
-    from models.user import User  # 循環インポート回避のためここでインポート
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    """Cookieからトークンを検証して、ログイン中のユーザーを返す。無効なら401エラー。"""
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="ログインが必要です")
 
     payload = verify_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="無効なトークンです")
 
+    from models.user import User  # 循環インポート回避のためここでインポート
     user = db.execute(
         select(User).where(User.email == payload["sub"])
     ).scalar_one_or_none()
@@ -54,9 +54,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
     return user
 
-def require_admin(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def require_admin(request: Request, db: Session = Depends(get_db)):
     """管理者のみ許可。スタッフなら403エラー。"""
-    user = get_current_user(token, db)
+    user = get_current_user(request, db)
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
     return user

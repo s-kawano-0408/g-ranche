@@ -1,28 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from database import get_db
 from models.user import User
-from auth import verify_password, create_access_token, verify_token, require_admin, hash_password
+from auth import verify_password, create_access_token, get_current_user, require_admin, hash_password
 
 from pydantic import BaseModel
 
-from fastapi.security import OAuth2PasswordBearer
-
 router = APIRouter()
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
-def get_current_token(token: str = Depends(oauth2_scheme)) -> str:
-    return token
 
 class LoginRequest(BaseModel):
     email: str
     password: str
 
 @router.post("/login")
-def login(data: LoginRequest, db: Session = Depends(get_db)):
+def login(data: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.execute(select(User).where(User.email == data.email)).scalar_one_or_none()
 
     if not user:
@@ -32,21 +25,18 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="メールアドレスまたはパスワードが間違っています")
 
     token = create_access_token({"sub": user.email})
-    return {"access_token": token, "token_type": "bearer"}
+    response.set_cookie(
+        key = "access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=8 * 3600
+    )
+    return {"message": "ログイン成功"}
 
 @router.get("/me")
-def get_me(token: str = Depends(get_current_token), db: Session = Depends(get_db)):
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(status_code = 401, detail="無効なトークンです")
-
-    user = db.execute(
-        select(User).where(User.email == payload["sub"])
-    ).scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code = 401, detail = "ユーザーが見つかりません")
-
+def get_me(user=Depends(get_current_user)):
     return {"id": user.id, "email": user.email, "name": user.name, "role": user.role}
 
 @router.get("/users")
@@ -72,3 +62,8 @@ def change_password(user_id: int, data: PasswordChangeRequest, db: Session = Dep
     user.password_hash = hash_password(data.new_password)
     db.commit()
     return {"message": "パスワードを変更しました"}
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie("access_token")
+    return {"message": "ログアウトしました"}

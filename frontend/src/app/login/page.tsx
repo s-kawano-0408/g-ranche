@@ -19,9 +19,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ① APIでログイン → トークンを保存
-      const data = await login(email, password);
-      localStorage.setItem("token", data.access_token);
+      // ① APIでログイン（サーバーがCookieにトークンをセット）
+      await login(email, password);
 
       // ② パスワードから暗号鍵を導出 → IndexedDBのデータを復号
       await setKeyAndLoad(password);
