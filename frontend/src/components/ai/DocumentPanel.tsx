@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, ClipboardList, BookOpen, Copy, Download, Loader2 } from 'lucide-react';
 import { generateSupportPlan, generateReport } from '@/lib/api';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 interface DocumentPanelProps {
   clients: Client[];
@@ -18,6 +19,7 @@ export default function DocumentPanel({ clients }: DocumentPanelProps) {
   const [loading, setLoading] = useState(false);
   const [generatedDoc, setGeneratedDoc] = useState<string>('');
   const [docType, setDocType] = useState<DocType | null>(null);
+  const { resolve } = usePseudonym();
 
   const generate = async (type: DocType) => {
     if (!selectedClientId) {
@@ -79,7 +81,7 @@ export default function DocumentPanel({ clients }: DocumentPanelProps) {
               </SelectTrigger>
               <SelectContent>
                 {clients.map(c => (
-                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={String(c.id)}>{resolve(c.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(c.pseudonym_hash)?.given_name ?? ''}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

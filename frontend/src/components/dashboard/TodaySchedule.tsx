@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin } from 'lucide-react';
 import { Schedule } from '@/types';
 import { getTodaySchedules } from '@/lib/api';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const typeConfig: Record<string, { label: string; color: string }> = {
   面談: { label: '面談', color: 'bg-blue-100 text-blue-700' },
@@ -23,6 +23,7 @@ function formatTime(dt: string) {
 export default function TodaySchedule() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const { resolve } = usePseudonym();
 
   useEffect(() => {
     getTodaySchedules()
@@ -74,7 +75,7 @@ export default function TodaySchedule() {
                     </div>
                   )}
                   {s.client && (
-                    <p className="text-xs text-gray-500 mt-0.5">{s.client.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{s.client.pseudonym_hash ? (resolve(s.client.pseudonym_hash)?.family_name ?? '仮名利用者') : '仮名利用者'}</p>
                   )}
                 </div>
               </div>

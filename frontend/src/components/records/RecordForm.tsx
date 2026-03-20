@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 interface RecordFormProps {
   open: boolean;
@@ -27,6 +28,7 @@ export default function RecordForm({ open, onClose, onSubmit, clients, defaultCl
     next_action: '',
   });
   const [loading, setLoading] = useState(false);
+  const { resolve } = usePseudonym();
 
   const set = (key: string, value: string | number | null) => {
     setForm(prev => ({ ...prev, [key]: value ?? '' }));
@@ -63,7 +65,7 @@ export default function RecordForm({ open, onClose, onSubmit, clients, defaultCl
                 </SelectTrigger>
                 <SelectContent>
                   {clients.map(c => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={String(c.id)}>{resolve(c.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(c.pseudonym_hash)?.given_name ?? ''}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

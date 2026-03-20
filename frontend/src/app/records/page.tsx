@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus } from 'lucide-react';
 import { CaseRecord, Client } from '@/types';
 import { getCaseRecords, createCaseRecord, getClients } from '@/lib/api';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 export default function RecordsPage() {
   const [records, setRecords] = useState<CaseRecord[]>([]);
@@ -17,6 +18,7 @@ export default function RecordsPage() {
   const [showForm, setShowForm] = useState(false);
   const [clientFilter, setClientFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const { resolve } = usePseudonym();
 
   useEffect(() => {
     Promise.all([getCaseRecords(), getClients()])
@@ -60,7 +62,7 @@ export default function RecordsPage() {
             <SelectContent>
               <SelectItem value="all">全利用者</SelectItem>
               {clients.map(c => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={String(c.id)}>{resolve(c.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(c.pseudonym_hash)?.given_name ?? ''}</SelectItem>
               ))}
             </SelectContent>
           </Select>

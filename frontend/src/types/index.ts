@@ -23,7 +23,7 @@ export interface SupportPlan {
   plan_date: string;
   long_term_goal: string;
   short_term_goal: string;
-  service_contents: string[];
+  service_contents: (string | { service: string; provider: string; frequency: string })[];
   monitoring_interval: number;
   next_monitoring_date: string;
   status: string;

@@ -19,6 +19,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       SECRET_KEY: ${SECRET_KEY}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      ENVIRONMENT: production
 
   frontend:
     build:

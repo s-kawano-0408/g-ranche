@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { AlertTriangle, User } from 'lucide-react';
 import { Client, SupportPlan } from '@/types';
 import { getClients, getSupportPlans } from '@/lib/api';
+import { usePseudonym } from '@/contexts/PseudonymContext';
 
 interface ClientWithPlan {
   client: Client;
@@ -15,6 +16,7 @@ interface ClientWithPlan {
 export default function MonitoringAlert() {
   const [alerts, setAlerts] = useState<ClientWithPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const { resolve } = usePseudonym();
 
   useEffect(() => {
     async function fetchData() {
@@ -92,8 +94,8 @@ export default function MonitoringAlert() {
                   <User size={14} className={textClass} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{client.name}</p>
-                  <p className="text-xs text-gray-500">{client.disability_type}</p>
+                  <p className="text-sm font-medium text-gray-900">{resolve(client.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(client.pseudonym_hash)?.given_name ?? ''}</p>
+                  <p className="text-xs text-gray-500">{client.client_type}</p>
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-bold ${textClass}`}>
