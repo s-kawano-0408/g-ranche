@@ -33,6 +33,7 @@ export default function MonthlyTasksPage() {
   };
   const [year, setYear] = useState(new Date().getFullYear());
   const [clientTypeFilter, setClientTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('利用中');
   const [search, setSearch] = useState('');
   const [kanaFilter, setKanaFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -46,7 +47,7 @@ export default function MonthlyTasksPage() {
         getClients(),
         getMonthlyTasks(year),
       ]);
-      setClients(clientsData.filter((c) => c.status === 'active'));
+      setClients(clientsData);
       setTasks(tasksData);
     } catch (error) {
       console.error('データの取得に失敗しました', error);
@@ -72,8 +73,11 @@ export default function MonthlyTasksPage() {
     { label: 'ワ', chars: 'ワヲン' },
   ];
 
+  const statusMap: Record<string, string> = { '利用中': 'active', '利用終了': 'inactive' };
+
   const filteredClients = clients
     .filter((c) => {
+      if (statusFilter !== 'すべて' && c.status !== statusMap[statusFilter]) return false;
       if (clientTypeFilter !== 'all' && c.client_type !== clientTypeFilter) return false;
 
       const p = resolve(c.pseudonym_hash);
@@ -168,8 +172,26 @@ export default function MonthlyTasksPage() {
         />
       </div>
 
-      {/* 児/者フィルター + ア行タブ */}
+      {/* ステータス + 児/者フィルター + ア行タブ */}
       <div className="flex flex-wrap items-center gap-4 mb-4">
+        <div className="flex gap-2">
+          {['利用中', '利用終了', 'すべて'].map((label) => (
+            <button
+              key={label}
+              onClick={() => setStatusFilter(label)}
+              className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+                statusFilter === label
+                  ? 'bg-teal-600 text-white border-teal-600'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-6 border-l border-slate-300" />
+
         <div className="flex gap-2">
           {['all', '児', '者'].map((type) => (
             <button

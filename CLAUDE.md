@@ -113,7 +113,7 @@ g-ranche/
 
 ## API エンドポイント
 - `GET/POST /api/clients` - 利用者一覧・新規作成
-- `GET/PUT/DELETE /api/clients/{id}` - 利用者詳細・更新・削除
+- `GET/PUT/DELETE /api/clients/{id}` - 利用者詳細・更新（管理者のみ、certificate_number/birth_date変更時はハッシュ再計算）・削除
 - `GET/POST /api/support-plans` - 支援計画
 - `GET/POST/PUT /api/records` - 支援記録
 - `GET/POST/PUT /api/schedules` - スケジュール
@@ -137,6 +137,7 @@ g-ranche/
 - 列: 12ヶ月分（年の切り替え可能）
 - セル: ドロップダウンで選択（モニタ / 更新 / 新規 / 更+モニ / 新+モニ / その他 / 最終モニタ）
 - ヘッダー: 月ごとの件数を自動集計
+- フィルター: ステータス（利用中/利用終了/すべて、デフォルト: 利用中）、児/者、五十音
 - 年表示クリックで今年に戻る
 - DB: `monthly_tasks` テーブル（client_id + year + month でユニーク制約）
 - タスク種別ごとに色分け表示
