@@ -1,8 +1,15 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
-import { encrypt, decrypt, generateSalt } from '@/lib/crypto';
-import { saveEncrypted, loadEncrypted, clearAll } from '@/lib/indexeddb';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  ReactNode,
+} from "react";
+import { encrypt, decrypt, generateSalt } from "@/lib/crypto";
+import { saveEncrypted, loadEncrypted, clearAll } from "@/lib/indexeddb";
 
 // マッピングに保存する個人情報の型
 export type ClientPersonalInfo = {
@@ -25,11 +32,15 @@ interface PseudonymContextType {
   importFromFile: (file: File) => Promise<number>;
   exportToFile: () => void;
   clearMappings: () => void;
-  generateHash: (certificateNumber: string, birthDate: string) => Promise<string>;
+  deleteAllData: () => void;
+  generateHash: (
+    certificateNumber: string,
+    birthDate: string,
+  ) => Promise<string>;
   setEncryptionKey: (key: CryptoKey) => Promise<void>;
 }
 
-const STORAGE_KEY = 'pseudonym_mappings';
+const STORAGE_KEY = "pseudonym_mappings";
 
 const PseudonymContext = createContext<PseudonymContextType | null>(null);
 
@@ -37,9 +48,11 @@ const PseudonymContext = createContext<PseudonymContextType | null>(null);
 async function sha256Hex(text: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   return hashHex.slice(0, 16);
 }
 
@@ -61,11 +74,12 @@ export function PseudonymProvider({ children }: { children: ReactNode }) {
 
       // saltはIndexedDBに既に保存されているものを読み出す（なければ新規生成）
       const existing = await loadEncrypted(STORAGE_KEY);
-      const salt = existing?.salt ?? btoa(String.fromCharCode(...generateSalt()));
+      const salt =
+        existing?.salt ?? btoa(String.fromCharCode(...generateSalt()));
 
       await saveEncrypted(STORAGE_KEY, { iv, salt, ciphertext });
     } catch {
-      console.error('マッピングの保存に失敗しました');
+      console.error("マッピングの保存に失敗しました");
     }
   }, []);
 
@@ -80,65 +94,86 @@ export function PseudonymProvider({ children }: { children: ReactNode }) {
         setMappings(JSON.parse(json));
       }
     } catch {
-      console.error('マッピングの復号に失敗しました');
+      console.error("マッピングの復号に失敗しました");
     }
   }, []);
 
   // ハッシュから個人情報を取得する
-  const resolve = useCallback((hash: string): ClientPersonalInfo | null => {
-    return mappings[hash] || null;
-  }, [mappings]);
+  const resolve = useCallback(
+    (hash: string): ClientPersonalInfo | null => {
+      return mappings[hash] || null;
+    },
+    [mappings],
+  );
 
   // マッピングを1件追加する
-  const addMapping = useCallback((hash: string, data: ClientPersonalInfo) => {
-    const updated = { ...mappings, [hash]: data };
-    saveMappings(updated);
-  }, [mappings, saveMappings]);
+  const addMapping = useCallback(
+    (hash: string, data: ClientPersonalInfo) => {
+      const updated = { ...mappings, [hash]: data };
+      saveMappings(updated);
+    },
+    [mappings, saveMappings],
+  );
 
   // JSONファイルからインポートする（追加された件数を返す）
-  const importFromFile = useCallback(async (file: File): Promise<number> => {
-    const text = await file.text();
-    const imported: PseudonymMappings = JSON.parse(text);
-    const updated = { ...mappings, ...imported };
-    saveMappings(updated);
-    return Object.keys(imported).length;
-  }, [mappings, saveMappings]);
+  const importFromFile = useCallback(
+    async (file: File): Promise<number> => {
+      const text = await file.text();
+      const imported: PseudonymMappings = JSON.parse(text);
+      const updated = { ...mappings, ...imported };
+      saveMappings(updated);
+      return Object.keys(imported).length;
+    },
+    [mappings, saveMappings],
+  );
 
   // 全マッピングをJSONファイルとしてダウンロードする（復号済みデータをエクスポート）
   const exportToFile = useCallback(() => {
     const json = JSON.stringify(mappings, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `pseudonym_mapping_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [mappings]);
 
-  // 全マッピングを削除する（IndexedDBも空にする）
+  // ログアウト時にメモリ上のデータと鍵をクリアする（IndexedDBは暗号化データを残す）
   const clearMappings = useCallback(() => {
+    setMappings({});
+    keyRef.current = null;
+  }, []);
+
+  // 全データを完全削除する（設定ページの「クリア」ボタン用。IndexedDBも空にする）
+  const deleteAllData = useCallback(() => {
     setMappings({});
     keyRef.current = null;
     clearAll().catch(() => console.error('IndexedDBのクリアに失敗しました'));
   }, []);
 
   // ブラウザ側でハッシュを生成する（復元用）
-  const generateHash = useCallback(async (certificateNumber: string, birthDate: string): Promise<string> => {
-    return sha256Hex(`${certificateNumber}:${birthDate}`);
-  }, []);
+  const generateHash = useCallback(
+    async (certificateNumber: string, birthDate: string): Promise<string> => {
+      return sha256Hex(`${certificateNumber}:${birthDate}`);
+    },
+    [],
+  );
 
   return (
-    <PseudonymContext.Provider value={{
-      mappings,
-      resolve,
-      addMapping,
-      importFromFile,
-      exportToFile,
-      clearMappings,
-      generateHash,
-      setEncryptionKey,
-    }}>
+    <PseudonymContext.Provider
+      value={{
+        mappings,
+        resolve,
+        addMapping,
+        importFromFile,
+        exportToFile,
+        clearMappings,
+        deleteAllData,
+        generateHash,
+        setEncryptionKey,
+      }}
+    >
       {children}
     </PseudonymContext.Provider>
   );
@@ -148,7 +183,7 @@ export function PseudonymProvider({ children }: { children: ReactNode }) {
 export function usePseudonym() {
   const context = useContext(PseudonymContext);
   if (!context) {
-    throw new Error('usePseudonym must be used within PseudonymProvider');
+    throw new Error("usePseudonym must be used within PseudonymProvider");
   }
   return context;
 }

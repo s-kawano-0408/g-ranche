@@ -21,7 +21,7 @@ interface UserItem {
 export default function SettingsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { mappings, importFromFile, exportToFile, clearMappings, generateHash, addMapping } = usePseudonym();
+  const { mappings, importFromFile, exportToFile, deleteAllData, generateHash, addMapping } = usePseudonym();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // パスワード管理
@@ -79,6 +79,8 @@ export default function SettingsPage() {
       await changePassword(userId, newPassword);
       setSuccess(prev => ({ ...prev, [userId]: true }));
       setPasswords(prev => ({ ...prev, [userId]: '' }));
+      // パスワード変更後の警告（暗号鍵が変わるため）
+      alert('パスワードを変更しました。\n\n⚠️ このユーザーは次回ログイン時にマッピングデータの再インポートが必要です。\n設定ページからJSONファイルをインポートしてください。');
       setTimeout(() => {
         setSuccess(prev => ({ ...prev, [userId]: false }));
       }, 3000);
@@ -204,7 +206,7 @@ export default function SettingsPage() {
                 className="gap-2 text-red-600 hover:text-red-700"
                 onClick={() => {
                   if (confirm('すべてのマッピングを削除しますか？\nJSONファイルのバックアップがあることを確認してください。')) {
-                    clearMappings();
+                    deleteAllData();
                   }
                 }}
                 disabled={mappingCount === 0}

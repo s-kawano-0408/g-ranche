@@ -94,13 +94,20 @@ g-ranche/
         │   ├── schedules/   # スケジュール
         │   ├── records/     # 支援記録
         │   └── ai/          # AIアシスタント
+        ├── middleware.ts     # nonceベースCSPヘッダー生成
         ├── contexts/        # Reactコンテキスト
-        │   ├── AuthContext.tsx      # 認証状態管理
-        │   └── PseudonymContext.tsx # 仮名化マッピング管理
+        │   ├── AuthContext.tsx      # 認証状態管理（Cookie + 暗号鍵 + 自動ロック）
+        │   └── PseudonymContext.tsx # 仮名化マッピング管理（IndexedDB + AES暗号化）
         ├── components/      # UIコンポーネント
         │   └── layout/      # Sidebar, Header
-        ├── hooks/           # useAIStream など
-        ├── lib/api.ts       # APIクライアント
+        ├── hooks/           # カスタムフック
+        │   ├── useAIStream.ts      # AIストリーミング
+        │   └── useAutoLock.ts      # 自動ロック（30分無操作でログアウト）
+        ├── lib/             # ユーティリティ
+        │   ├── api.ts              # APIクライアント（credentials: include）
+        │   ├── crypto.ts           # AES-GCM暗号化・PBKDF2鍵導出
+        │   ├── indexeddb.ts        # IndexedDBラッパー
+        │   └── migrate-storage.ts  # localStorage → IndexedDB移行
         └── types/           # TypeScript型定義
 ```
 
@@ -114,6 +121,11 @@ g-ranche/
 - `GET /api/monthly-tasks` - 月間業務タスク一覧（year, month, client_id でフィルタ可）
 - `PUT /api/monthly-tasks` - 月間業務タスク登録・更新（upsert）
 - `DELETE /api/monthly-tasks` - 月間業務タスク削除（client_id, year, month 指定）
+- `POST /api/auth/login` - ログイン（HttpOnly Cookie をセット）
+- `POST /api/auth/logout` - ログアウト（Cookie を削除）
+- `GET /api/auth/me` - ログイン中のユーザー情報取得
+- `GET /api/auth/users` - ユーザー一覧（管理者のみ）
+- `PUT /api/auth/users/{id}/password` - パスワード変更（管理者のみ）
 - `POST /api/ai/chat` - AIチャット（SSEストリーミング + Tool Use）
 - `POST /api/ai/generate-plan` - 支援計画書生成
 - `POST /api/ai/summarize-record` - 支援記録要約
@@ -149,12 +161,49 @@ g-ranche/
 - `monthly_tasks` - 月間業務タスク（client_id, year, month, task_type）
 - `ai_conversations` - AIチャット履歴
 
+## 認証・セキュリティ
+
+### 認証方式
+- JWT（JSON Web Token）を **HttpOnly Cookie** で管理
+- ログイン時にサーバーが Cookie をセット → ブラウザが自動送信
+- JavaScript から Cookie にアクセスできない（XSS でトークン窃取不可）
+- Cookie 設定: `httponly=True`, `samesite=lax`, `secure=環境依存`（本番は `True`）
+- トークン有効期限: 8時間
+
+### 暗号化（個人情報保護）
+- マッピングデータは **IndexedDB + AES-256-GCM** で暗号化保存
+- 暗号鍵はログインパスワードから **PBKDF2**（10万回反復）で導出
+- 鍵はメモリ上にのみ存在（`CryptoKey` オブジェクト、エクスポート不可）
+- salt はユーザーごとにランダム生成、IndexedDB に保存
+- IV（初期化ベクトル）は暗号化のたびにランダム生成
+- ライブラリ: Web Crypto API（ブラウザ標準）
+
+### セキュリティヘッダー
+- **CSP**: nonce ベース（`middleware.ts` でリクエストごとに生成）
+  - `script-src 'nonce-xxx' 'strict-dynamic'`（`unsafe-inline`/`unsafe-eval` 不使用）
+- **X-Frame-Options**: DENY（クリックジャッキング防止）
+- **X-Content-Type-Options**: nosniff
+- **Referrer-Policy**: strict-origin-when-cross-origin
+
+### 自動ロック
+- 30分間操作がなければ自動ログアウト（`useAutoLock` フック）
+- マウス/キーボード/タッチ操作でタイマーリセット
+
+### CORS
+- `ALLOWED_ORIGINS` 環境変数で制御（デフォルト: `http://localhost:3000`）
+- `credentials: include` を使うため、ワイルドカード `*` は使用不可
+
+### 既知の制約
+- **ページリフレッシュ**: F5 で暗号鍵がメモリから消える → 再ログインが必要
+- **パスワード変更**: 暗号鍵が変わるため、変更後にマッピングの再インポートが必要
+- 本番デプロイ時は `ENVIRONMENT=production` を設定すること（Cookie の `secure` フラグ）
+
 ## 仮名化（個人情報保護）
 DBに個人情報を保存せず、ハッシュ値のみ保存する仕組み。
 
 ### 仕組み
 - `certificate_number + birth_date` → SHA-256 → 16文字ハッシュ
-- 個人情報はブラウザの `localStorage` + JSONファイルでローカル管理
+- 個人情報はブラウザの **IndexedDB**（AES-GCM暗号化）+ JSONファイルでローカル管理
 - ハッシュは決定的（同じ入力なら同じ結果）なので、JSONを紛失しても受給者証番号+生年月日から復元可能
 
 ### JSONマッピングファイル
@@ -169,6 +218,10 @@ cd backend
 ```
 - 既存の個人情報をJSONに退避してDBから削除
 - 出力された `pseudonym_mapping.json` を安全に保管すること
+
+### マイグレーション（localStorage → IndexedDB）
+- 初回ログイン時に自動実行（`migrate-storage.ts`）
+- localStorage の平文データを暗号化して IndexedDB に保存 → localStorage から削除
 
 ## デプロイ（本番環境）
 
@@ -193,6 +246,7 @@ docker compose --env-file .env.production up -d --build
 - `.env`ファイルに`ANTHROPIC_API_KEY`を設定すること
 - ローカル開発時のデータベースファイル: `backend/g_ranche.db`（SQLite）
 - 本番は PostgreSQL（`DATABASE_URL` 環境変数で切替）
-- CORSは環境変数 `ALLOWED_ORIGINS` で制御（未設定時は全許可）
+- CORSは環境変数 `ALLOWED_ORIGINS` で制御（デフォルト: `http://localhost:3000`、ワイルドカード `*` は不可）
+- 本番環境では `ENVIRONMENT=production` を設定（Cookie の secure フラグ用）
 - `seed.py` 実行時に `seed_pseudonym_mapping.json` が出力される（フロントでインポートして使用）
 - `.env.production` と `pgdata/` は `.gitignore` でGit管理外

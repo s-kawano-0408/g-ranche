@@ -14,8 +14,8 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS configuration - allow all origins for development
-origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+# CORS configuration - Cookie送信にはオリジンの明示指定が必要
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

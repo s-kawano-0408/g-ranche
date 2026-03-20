@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -25,13 +26,14 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
         raise HTTPException(status_code=401, detail="メールアドレスまたはパスワードが間違っています")
 
     token = create_access_token({"sub": user.email})
+    is_production = os.getenv("ENVIRONMENT") == "production"
     response.set_cookie(
-        key = "access_token",
+        key="access_token",
         value=token,
         httponly=True,
         samesite="lax",
-        secure=False,
-        max_age=8 * 3600
+        secure=is_production,
+        max_age=8 * 3600,
     )
     return {"message": "ログイン成功"}
 
