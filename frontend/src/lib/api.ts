@@ -18,6 +18,12 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
 
+  if (res.status === 401) {
+    // セッション切れ → ログイン画面にリダイレクト
+    window.location.href = "/login";
+    throw new Error("セッションが切れました。再ログインしてください。");
+  }
+
   if (!res.ok) {
     const error = await res.text();
     throw new Error(error || `API error: ${res.status}`);

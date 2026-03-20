@@ -1,9 +1,10 @@
 import bcrypt
+import time
 from datetime import datetime, timedelta
 from jose import jwt
 import os
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -34,7 +35,7 @@ def verify_token(token: str) -> dict | None:
 
 # --- 共通の認証チェック（各ルーターで使う） ---
 
-def get_current_user(request: Request, db: Session = Depends(get_db)):
+def get_current_user(request: Request, response: Response, db: Session = Depends(get_db)):
     """Cookieからトークンを検証して、ログイン中のユーザーを返す。無効なら401エラー。"""
     token = request.cookies.get("access_token")
     if not token:
@@ -43,6 +44,21 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     payload = verify_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="無効なトークンです")
+
+    # トークンの残り時間が2時間以下なら、新しいトークンでCookieを上書き
+    exp = payload.get("exp", 0)
+    remaining = exp - time.time()
+    if remaining < 2 * 3600:
+        new_token = create_access_token({"sub": payload["sub"]})
+        is_production = os.getenv("ENVIRONMENT") == "production"
+        response.set_cookie(
+            key="access_token",
+            value=new_token,
+            httponly=True,
+            samesite="lax",
+            secure=is_production,
+            max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
+        )
 
     from models.user import User  # 循環インポート回避のためここでインポート
     user = db.execute(
@@ -54,9 +70,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
 
     return user
 
-def require_admin(request: Request, db: Session = Depends(get_db)):
+def require_admin(request: Request, response: Response, db: Session = Depends(get_db)):
     """管理者のみ許可。スタッフなら403エラー。"""
-    user = get_current_user(request, db)
+    user = get_current_user(request, response, db)
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
     return user
