@@ -174,21 +174,15 @@ export default function MonthlyTasksPage() {
 
       {/* ステータス + 児/者フィルター + ア行タブ */}
       <div className="flex flex-wrap items-center gap-4 mb-4">
-        <div className="flex gap-2">
-          {['利用中', '利用終了', 'すべて'].map((label) => (
-            <button
-              key={label}
-              onClick={() => setStatusFilter(label)}
-              className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
-                statusFilter === label
-                  ? 'bg-teal-600 text-white border-teal-600'
-                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+        >
+          <option value="利用中">利用中</option>
+          <option value="利用終了">利用終了</option>
+          <option value="すべて">すべて</option>
+        </select>
 
         <div className="h-6 border-l border-slate-300" />
 
