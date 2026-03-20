@@ -54,7 +54,11 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env    # APIキーを設定
 g-ranche/
 ├── start.sh                 # 一括起動スクリプト（ローカル開発用）
 ├── docker-compose.yml       # 本番デプロイ用（4サービス: db, backend, frontend, caddy）
-├── Caddyfile                # リバースプロキシ + 自動HTTPS設定
+├── Caddyfile                # リバースプロキシ + 自動HTTPS設定（Oracle用）
+├── fly.toml                 # Fly.ioデプロイ設定
+├── Dockerfile.fly           # Fly.io用Dockerfile（Python + Node.js + Caddy）
+├── Caddyfile.fly            # Fly.io用Caddy設定（:8080でリバースプロキシ）
+├── start-fly.sh             # Fly.io用起動スクリプト
 ├── .env.production          # 本番環境変数テンプレート（※Git管理外）
 ├── backend/
 │   ├── main.py              # FastAPI エントリポイント
@@ -181,8 +185,10 @@ g-ranche/
 - ライブラリ: Web Crypto API（ブラウザ標準）
 
 ### セキュリティヘッダー
-- **CSP**: nonce ベース（`middleware.ts` でリクエストごとに生成）
-  - `script-src 'nonce-xxx' 'strict-dynamic'`（`unsafe-inline`/`unsafe-eval` 不使用）
+- **CSP**（`middleware.ts`で設定）:
+  - ローカル/本番共通: `default-src 'self'`, `connect-src 'self'`, `img-src 'self' data: blob:`
+  - デモ環境（Fly.io）: `script-src 'self' 'unsafe-inline' 'unsafe-eval'`（Next.js本番ビルドとの互換性のため緩和中）
+  - 本番環境（Oracle移行時）: nonce ベースに戻す予定
 - **X-Frame-Options**: DENY（クリックジャッキング防止）
 - **X-Content-Type-Options**: nosniff
 - **Referrer-Policy**: strict-origin-when-cross-origin
@@ -225,14 +231,48 @@ cd backend
 - 初回ログイン時に自動実行（`migrate-storage.ts`）
 - localStorage の平文データを暗号化して IndexedDB に保存 → localStorage から削除
 
-## デプロイ（本番環境）
+## デプロイ
 
-### 構成
+### デモ環境（Fly.io）
+- URL: https://g-ranche.fly.dev/
+- 構成: 単一コンテナ（Python + Node.js + Caddy）on Fly.io
+- DB: SQLite（Fly.io Volume `/data/g_ranche.db`）
+- リバースプロキシ: Caddy（`:8080` → `/api/*` はバックエンド、それ以外はNext.js）
+
+#### デプロイ手順
+```bash
+cd /Users/kawano/project/g-ranche
+fly deploy                    # 通常デプロイ
+fly deploy --no-cache         # キャッシュなし再ビルド（フロント変更時に推奨）
+```
+
+#### DB再作成（seedデータ再投入）
+```bash
+fly ssh console --app g-ranche -C "rm -f /data/g_ranche.db"
+fly deploy --no-cache
+# 起動時に自動で seed.py が実行される
+# マッピングJSONは https://g-ranche.fly.dev/seed_pseudonym_mapping.json からDL
+```
+
+#### 関連ファイル
+- `fly.toml` — Fly.io設定（リージョン: nrt、VM: shared-cpu-1x 512MB）
+- `Dockerfile.fly` — マルチステージビルド（Node.js 20 + Python 3.11 + Caddy）
+- `Caddyfile.fly` — リバースプロキシ設定
+- `start-fly.sh` — コンテナ起動スクリプト（backend + frontend + Caddy）
+
+#### API URL設計の注意
+- `redirect_slashes=False`（`main.py`）で、FastAPIの自動リダイレクトを無効化
+- フロントのAPI URLはバックエンドのルート定義に正確に合わせること
+  - コレクション（`"/"`定義）: `/api/clients/`（末尾スラッシュあり）
+  - 個別エンドポイント（`"/login"`等）: `/api/auth/login`（末尾スラッシュなし）
+- 理由: Caddy経由だとFastAPIのリダイレクトが`http://`で生成され、CSPにブロックされるため
+
+### 本番環境（Oracle Cloud — 予定）
 - Oracle Cloud VM（ARM, 1 OCPU, 6GB RAM）上で Docker Compose を使用
 - Caddy がリバースプロキシ + 自動HTTPS（Let's Encrypt）
 - PostgreSQL でデータ永続化（`./pgdata/`）
 
-### デプロイ手順
+#### デプロイ手順
 ```bash
 # VM上で実行
 git pull
@@ -240,9 +280,9 @@ docker compose --env-file .env.production up -d --build
 ```
 
 ### Gitブランチ戦略
-- `main` — 本番（VMはこのブランチをデプロイ）
+- `main` — 本番（デプロイ対象）
 - `develop` — 開発（ローカルで作業するブランチ）
-- 開発完了 → `main` にマージ → VMで `git pull` & `docker compose up`
+- 開発完了 → `main` にマージ → デプロイ
 
 ## 注意事項
 - `.env`ファイルに`ANTHROPIC_API_KEY`を設定すること
@@ -251,4 +291,5 @@ docker compose --env-file .env.production up -d --build
 - CORSは環境変数 `ALLOWED_ORIGINS` で制御（デフォルト: `http://localhost:3000`、ワイルドカード `*` は不可）
 - 本番環境では `ENVIRONMENT=production` を設定（Cookie の secure フラグ用）
 - `seed.py` 実行時に `seed_pseudonym_mapping.json` が出力される（フロントでインポートして使用）
+- `seed.py` は200名の利用者 + 支援計画 + 支援記録 + スケジュール + 月間業務を生成
 - `.env.production` と `pgdata/` は `.gitignore` でGit管理外

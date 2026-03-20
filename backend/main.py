@@ -12,6 +12,7 @@ app = FastAPI(
     title="ぐ・らんちぇ 管理システム API",
     description="ぐ・らんちぇの相談支援業務を管理するAPIです。",
     version="1.0.0",
+    redirect_slashes=False,
 )
 
 # CORS configuration - Cookie送信にはオリジンの明示指定が必要

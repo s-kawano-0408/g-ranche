@@ -14,6 +14,7 @@ from models.client import Client
 from models.support_plan import SupportPlan
 from models.case_record import CaseRecord
 from models.schedule import Schedule
+from models.monthly_task import MonthlyTask
 from models.user import User
 from auth import hash_password
 from pseudonym import generate_hash
@@ -99,6 +100,7 @@ def seed():
 
     try:
         # Clear existing data in reverse dependency order
+        db.query(MonthlyTask).delete()
         db.query(Schedule).delete()
         db.query(CaseRecord).delete()
         db.query(SupportPlan).delete()
@@ -370,6 +372,30 @@ def seed():
         db.commit()
         print(f"スケジュール登録完了: {len(schedules_data)}件")
 
+        # ── Monthly Tasks（activeな利用者に今年の月間業務を割り当て）─────
+        task_types = ["モニタ", "更新", "新規", "更+モニ", "新+モニ", "その他", "最終モニタ"]
+        task_weights = [40, 20, 5, 10, 5, 5, 15]
+        current_year = today.year
+
+        monthly_tasks = []
+        for c in active_clients:
+            # 各利用者に年間2〜6件のタスクをランダム配置
+            num_tasks = random.randint(2, 6)
+            months = random.sample(range(1, 13), k=num_tasks)
+            for m in months:
+                task_type = random.choices(task_types, weights=task_weights, k=1)[0]
+                mt = MonthlyTask(
+                    client_id=c.id,
+                    year=current_year,
+                    month=m,
+                    task_type=task_type,
+                )
+                monthly_tasks.append(mt)
+
+        db.add_all(monthly_tasks)
+        db.commit()
+        print(f"月間業務登録完了: {len(monthly_tasks)}件")
+
         print(f"\n=== シードデータの登録が完了しました ===")
         print(f"ユーザー: 3名（admin × 1, staff × 2）")
         print(f"スタッフ: 2名")
@@ -377,6 +403,7 @@ def seed():
         print(f"支援計画: {len(plans)}件")
         print(f"支援記録: {len(records)}件")
         print(f"スケジュール: {len(schedules_data)}件")
+        print(f"月間業務: {len(monthly_tasks)}件")
 
     except Exception as e:
         db.rollback()

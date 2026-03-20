@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuth = async () => {
       try {
         // Cookieが自動送信される → サーバーがトークンを検証
-        const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
         const res = await fetch(`${BASE_URL}/api/auth/me`, {
           credentials: 'include',
         });
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setEncryptionKey(key);
 
     // ユーザー情報を取得してstateにセット（router.pushではリロードしないため）
-    const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
     const res = await fetch(`${BASE_URL}/api/auth/me`, { credentials: 'include' });
     if (res.ok) {
       const userData = await res.json();

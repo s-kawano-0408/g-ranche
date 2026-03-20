@@ -1,6 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    // 本番（Caddy経由）ではrewrite不要
+    if (process.env.ENVIRONMENT === "production") {
+      return [];
+    }
+    // ローカル開発用: Next.jsがAPIリクエストをバックエンドに転送
+    const apiUrl = process.env.BACKEND_URL || "http://localhost:8000";
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiUrl}/api/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {

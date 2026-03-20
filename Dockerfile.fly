@@ -1,0 +1,49 @@
+# Stage 1: Frontend ビルド
+FROM node:20-slim AS frontend-build
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+ENV NEXT_PUBLIC_API_URL=""
+RUN npm run build
+
+# Stage 2: 実行環境
+FROM python:3.11-slim
+
+# Node.js + Caddy インストール
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    debian-keyring \
+    debian-archive-keyring \
+    apt-transport-https \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
+    && apt-get update \
+    && apt-get install -y nodejs caddy \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Backend セットアップ
+WORKDIR /app/backend
+COPY backend/ ./
+RUN pip install --no-cache-dir .
+
+# Frontend セットアップ（ビルド済み）
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+COPY frontend/next.config.ts ./
+RUN npm ci --omit=dev
+COPY --from=frontend-build /app/.next ./.next
+COPY --from=frontend-build /app/public ./public
+
+# Caddy 設定ファイル
+COPY Caddyfile.fly /etc/caddy/Caddyfile
+
+# 起動スクリプト
+COPY start-fly.sh /app/start-fly.sh
+RUN chmod +x /app/start-fly.sh
+
+WORKDIR /app
+EXPOSE 8080
+
+CMD ["/app/start-fly.sh"]
