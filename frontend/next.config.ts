@@ -7,18 +7,7 @@ const nextConfig: NextConfig = {
         // すべてのページに適用
         source: "/(.*)",
         headers: [
-          {
-            // CSP: 許可するスクリプト・スタイルの読み込み元を制限
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",          // 基本は自分のドメインだけ許可
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.jsが動作に必要
-              "style-src 'self' 'unsafe-inline'",                // Tailwind CSSが必要
-              "img-src 'self' data: blob:",   // 画像: 自ドメイン + data URI + blob
-              "font-src 'self'",              // フォント: 自ドメインのみ
-              "connect-src 'self' http://localhost:8000", // API接続先
-            ].join("; "),
-          },
+          // CSPはmiddleware.tsでnonceベースで設定するため、ここでは設定しない
           {
             // クリックジャッキング防止（iframeで埋め込まれるのを防ぐ）
             key: "X-Frame-Options",
