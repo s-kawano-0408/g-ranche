@@ -29,6 +29,7 @@ interface PseudonymContextType {
   mappings: PseudonymMappings;
   resolve: (hash: string) => ClientPersonalInfo | null;
   addMapping: (hash: string, data: ClientPersonalInfo) => void;
+  updateMapping: (oldHash: string, newHash: string, data: ClientPersonalInfo) => void;
   importFromFile: (file: File) => Promise<number>;
   exportToFile: () => void;
   clearMappings: () => void;
@@ -115,6 +116,19 @@ export function PseudonymProvider({ children }: { children: ReactNode }) {
     [mappings, saveMappings],
   );
 
+  // マッピングを更新する（ハッシュ変更時は旧マッピングを削除して新マッピングを追加）
+  const updateMapping = useCallback(
+    (oldHash: string, newHash: string, data: ClientPersonalInfo) => {
+      const updated = { ...mappings };
+      if (oldHash !== newHash) {
+        delete updated[oldHash];
+      }
+      updated[newHash] = data;
+      saveMappings(updated);
+    },
+    [mappings, saveMappings],
+  );
+
   // JSONファイルからインポートする（追加された件数を返す）
   const importFromFile = useCallback(
     async (file: File): Promise<number> => {
@@ -166,6 +180,7 @@ export function PseudonymProvider({ children }: { children: ReactNode }) {
         mappings,
         resolve,
         addMapping,
+        updateMapping,
         importFromFile,
         exportToFile,
         clearMappings,

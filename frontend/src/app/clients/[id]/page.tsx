@@ -5,14 +5,16 @@ import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import RecordTimeline from '@/components/records/RecordTimeline';
 import RecordForm from '@/components/records/RecordForm';
+import ClientForm from '@/components/clients/ClientForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, Plus, Sparkles, User, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Sparkles, User, Calendar, Pencil } from 'lucide-react';
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
 import { getClient, getSupportPlans, getCaseRecords, getSchedules, createCaseRecord, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
 import { usePseudonym } from '@/contexts/PseudonymContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: '利用中', color: 'bg-teal-100 text-teal-700' },
@@ -41,6 +43,8 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const id = Number(params.id);
   const { resolve } = usePseudonym();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const [client, setClient] = useState<Client | null>(null);
   const [plans, setPlans] = useState<SupportPlan[]>([]);
@@ -48,6 +52,7 @@ export default function ClientDetailPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRecordForm, setShowRecordForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState('');
   const [showHash, setShowHash] = useState(false);
@@ -147,11 +152,12 @@ export default function ClientDetailPage() {
           {/* Profile Tab */}
           <TabsContent value="profile">
             <Card className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
-                  <User size={24} className="text-teal-600" />
-                </div>
-                <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
+                    <User size={24} className="text-teal-600" />
+                  </div>
+                  <div>
                   <h3
                     className={`font-semibold text-gray-900 ${!personal ? 'cursor-pointer hover:text-teal-600' : ''}`}
                     onClick={() => { if (!personal) setShowHash(!showHash); }}
@@ -159,7 +165,19 @@ export default function ClientDetailPage() {
                     {!personal && showHash ? client.pseudonym_hash : fullName}
                   </h3>
                   <p className="text-sm text-gray-500">{fullNameKana}</p>
+                  </div>
                 </div>
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => setShowEditForm(true)}
+                  >
+                    <Pencil size={14} />
+                    編集
+                  </Button>
+                )}
               </div>
               <dl>
                 {personal ? (
@@ -319,6 +337,38 @@ export default function ClientDetailPage() {
         clients={[client]}
         defaultClientId={client.id}
       />
+
+      {showEditForm && personal && (
+        <ClientForm
+          open={showEditForm}
+          onClose={async () => {
+            setShowEditForm(false);
+            // 保存後にデータをリフレッシュ
+            try {
+              const refreshed = await getClient(id);
+              setClient(refreshed);
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+          onSubmit={async () => ({ pseudonym_hash: client.pseudonym_hash })}
+          clientId={client.id}
+          oldPseudonymHash={client.pseudonym_hash}
+          initialData={{
+            family_name: personal.family_name,
+            given_name: personal.given_name,
+            family_name_kana: personal.family_name_kana,
+            given_name_kana: personal.given_name_kana,
+            birth_date: personal.birth_date,
+            certificate_number: personal.certificate_number,
+            gender: client.gender || '',
+            client_type: client.client_type,
+            status: client.status === 'active' ? '利用中' : '利用終了',
+            end_date: client.end_date || '',
+            notes: client.notes || '',
+          }}
+        />
+      )}
     </div>
   );
 }

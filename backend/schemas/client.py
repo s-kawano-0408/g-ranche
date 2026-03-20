@@ -19,6 +19,8 @@ class ClientCreate(BaseModel):
 
 
 class ClientUpdate(BaseModel):
+    certificate_number: Optional[str] = None
+    birth_date: Optional[date] = None
     gender: Optional[str] = None
     client_type: Optional[str] = None
     staff_id: Optional[int] = None

@@ -68,9 +68,9 @@ def get_client(client_id: int, db: Session = Depends(get_db), _user=Depends(get_
 
 @router.put("/{client_id}", response_model=ClientResponse)
 def update_client(
-    client_id: int, client_in: ClientUpdate, db: Session = Depends(get_db), _user=Depends(get_current_user)
+    client_id: int, client_in: ClientUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)
 ):
-    """利用者情報を更新します。"""
+    """利用者情報を更新します。（管理者のみ）"""
     client = db.execute(
         select(Client).where(Client.id == client_id)
     ).scalar_one_or_none()
@@ -78,6 +78,19 @@ def update_client(
         raise HTTPException(status_code=404, detail="利用者が見つかりません")
 
     update_data = client_in.model_dump(exclude_unset=True)
+
+    # 受給者証番号 or 生年月日が変更された場合、ハッシュを再計算
+    cert = update_data.pop("certificate_number", None)
+    bd = update_data.pop("birth_date", None)
+    if cert is not None or bd is not None:
+        # フロントエンドからcertificate_numberとbirth_dateの両方を必ず送ってもらう
+        if cert is None or bd is None:
+            raise HTTPException(
+                status_code=400,
+                detail="受給者証番号と生年月日は両方指定してください",
+            )
+        client.pseudonym_hash = generate_hash(cert, str(bd))
+
     for key, value in update_data.items():
         setattr(client, key, value)
 
