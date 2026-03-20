@@ -99,6 +99,7 @@ g-ranche/
         │   ├── AuthContext.tsx      # 認証状態管理（Cookie + 暗号鍵 + 自動ロック）
         │   └── PseudonymContext.tsx # 仮名化マッピング管理（IndexedDB + AES暗号化）
         ├── components/      # UIコンポーネント
+        │   ├── clients/ClientCombobox.tsx # 検索可能な利用者選択（共通コンポーネント）
         │   └── layout/      # Sidebar, Header
         ├── hooks/           # カスタムフック
         │   ├── useAIStream.ts      # AIストリーミング

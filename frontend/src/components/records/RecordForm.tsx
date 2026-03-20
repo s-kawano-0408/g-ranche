@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CaseRecord, Client } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { usePseudonym } from '@/contexts/PseudonymContext';
+import ClientCombobox from '@/components/clients/ClientCombobox';
 
 interface RecordFormProps {
   open: boolean;
@@ -15,11 +15,12 @@ interface RecordFormProps {
   onSubmit: (data: Omit<CaseRecord, 'id'>) => Promise<void>;
   clients: Client[];
   defaultClientId?: number;
+  initialData?: CaseRecord;
 }
 
-export default function RecordForm({ open, onClose, onSubmit, clients, defaultClientId }: RecordFormProps) {
+export default function RecordForm({ open, onClose, onSubmit, clients, defaultClientId, initialData }: RecordFormProps) {
   const [form, setForm] = useState({
-    client_id: defaultClientId || (clients[0]?.id ?? 0),
+    client_id: defaultClientId || clients[0]?.id || 0,
     staff_id: 1,
     record_date: new Date().toISOString().split('T')[0],
     record_type: '面談',
@@ -28,7 +29,34 @@ export default function RecordForm({ open, onClose, onSubmit, clients, defaultCl
     next_action: '',
   });
   const [loading, setLoading] = useState(false);
-  const { resolve } = usePseudonym();
+  const isEditMode = !!initialData;
+
+  // ダイアログが開くたびにフォームをリセット
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        setForm({
+          client_id: initialData.client_id,
+          staff_id: initialData.staff_id || 1,
+          record_date: initialData.record_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+          record_type: initialData.record_type || '面談',
+          content: initialData.content || '',
+          summary: initialData.summary || '',
+          next_action: initialData.next_action || '',
+        });
+      } else {
+        setForm({
+          client_id: defaultClientId || clients[0]?.id || 0,
+          staff_id: 1,
+          record_date: new Date().toISOString().split('T')[0],
+          record_type: '面談',
+          content: '',
+          summary: '',
+          next_action: '',
+        });
+      }
+    }
+  }, [open, initialData, defaultClientId, clients]);
 
   const set = (key: string, value: string | number | null) => {
     setForm(prev => ({ ...prev, [key]: value ?? '' }));
@@ -40,7 +68,6 @@ export default function RecordForm({ open, onClose, onSubmit, clients, defaultCl
       setLoading(true);
       await onSubmit(form as Omit<CaseRecord, 'id'>);
       onClose();
-      setForm(prev => ({ ...prev, content: '', summary: '', next_action: '' }));
     } catch (e) {
       console.error(e);
     } finally {
@@ -52,23 +79,19 @@ export default function RecordForm({ open, onClose, onSubmit, clients, defaultCl
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>新規支援記録</DialogTitle>
+          <DialogTitle>{isEditMode ? '支援記録の編集' : '新規支援記録'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">利用者 *</label>
-              <Select value={String(form.client_id)} onValueChange={v => set('client_id', Number(v))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="利用者を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={String(c.id)}>{resolve(c.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(c.pseudonym_hash)?.given_name ?? ''}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClientCombobox
+                clients={clients}
+                value={form.client_id || null}
+                onChange={id => set('client_id', id)}
+                placeholder="利用者を検索..."
+              />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">記録種別</label>

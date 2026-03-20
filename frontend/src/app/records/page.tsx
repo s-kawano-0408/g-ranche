@@ -8,17 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { CaseRecord, Client } from '@/types';
-import { getCaseRecords, createCaseRecord, getClients } from '@/lib/api';
-import { usePseudonym } from '@/contexts/PseudonymContext';
+import { getCaseRecords, createCaseRecord, updateCaseRecord, getClients } from '@/lib/api';
+import ClientCombobox from '@/components/clients/ClientCombobox';
 
 export default function RecordsPage() {
   const [records, setRecords] = useState<CaseRecord[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [clientFilter, setClientFilter] = useState('all');
+  const [editingRecord, setEditingRecord] = useState<CaseRecord | null>(null);
+  const [clientFilter, setClientFilter] = useState<number | null>(null);
   const [typeFilter, setTypeFilter] = useState('all');
-  const { resolve } = usePseudonym();
 
   useEffect(() => {
     Promise.all([getCaseRecords(), getClients()])
@@ -29,7 +29,7 @@ export default function RecordsPage() {
 
   const filtered = useMemo(() => {
     return records.filter(r => {
-      const matchClient = clientFilter === 'all' || String(r.client_id) === clientFilter;
+      const matchClient = clientFilter === null || r.client_id === clientFilter;
       const matchType = typeFilter === 'all' || r.record_type === typeFilter;
       return matchClient && matchType;
     });
@@ -38,6 +38,16 @@ export default function RecordsPage() {
   const handleAdd = async (data: Omit<CaseRecord, 'id'>) => {
     const newRecord = await createCaseRecord(data);
     setRecords(prev => [newRecord, ...prev]);
+  };
+
+  const handleUpdate = async (data: Omit<CaseRecord, 'id'>) => {
+    if (!editingRecord) return;
+    const updated = await updateCaseRecord(editingRecord.id, data);
+    setRecords(prev => prev.map(r => r.id === editingRecord.id ? updated : r));
+  };
+
+  const handleEdit = (record: CaseRecord) => {
+    setEditingRecord(record);
   };
 
   return (
@@ -55,17 +65,15 @@ export default function RecordsPage() {
       <div className="flex-1 p-8 space-y-6">
         {/* Filters */}
         <div className="flex flex-wrap gap-3">
-          <Select value={clientFilter} onValueChange={(v) => setClientFilter(v || 'all')}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="利用者で絞込" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全利用者</SelectItem>
-              {clients.map(c => (
-                <SelectItem key={c.id} value={String(c.id)}>{resolve(c.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(c.pseudonym_hash)?.given_name ?? ''}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ClientCombobox
+            clients={clients}
+            value={clientFilter}
+            onChange={setClientFilter}
+            allowEmpty
+            emptyLabel="全利用者"
+            placeholder="利用者で絞込..."
+            className="w-52"
+          />
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v || 'all')}>
             <SelectTrigger className="w-36">
               <SelectValue placeholder="種別で絞込" />
@@ -88,7 +96,7 @@ export default function RecordsPage() {
             ))}
           </div>
         ) : (
-          <RecordTimeline records={filtered} clients={clients} />
+          <RecordTimeline records={filtered} clients={clients} onEdit={handleEdit} />
         )}
       </div>
 
@@ -98,6 +106,16 @@ export default function RecordsPage() {
         onSubmit={handleAdd}
         clients={clients}
       />
+
+      {editingRecord && (
+        <RecordForm
+          open={!!editingRecord}
+          onClose={() => setEditingRecord(null)}
+          onSubmit={handleUpdate}
+          clients={clients}
+          initialData={editingRecord}
+        />
+      )}
     </div>
   );
 }

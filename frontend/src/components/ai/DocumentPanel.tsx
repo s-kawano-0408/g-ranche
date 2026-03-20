@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import { Client } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, ClipboardList, BookOpen, Copy, Download, Loader2 } from 'lucide-react';
 import { generateSupportPlan, generateReport } from '@/lib/api';
-import { usePseudonym } from '@/contexts/PseudonymContext';
+import ClientCombobox from '@/components/clients/ClientCombobox';
 
 interface DocumentPanelProps {
   clients: Client[];
@@ -15,18 +14,17 @@ interface DocumentPanelProps {
 type DocType = 'plan' | 'report' | 'summary';
 
 export default function DocumentPanel({ clients }: DocumentPanelProps) {
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [generatedDoc, setGeneratedDoc] = useState<string>('');
   const [docType, setDocType] = useState<DocType | null>(null);
-  const { resolve } = usePseudonym();
 
   const generate = async (type: DocType) => {
-    if (!selectedClientId) {
+    if (selectedClientId === null) {
       alert('利用者を選択してください');
       return;
     }
-    const clientId = Number(selectedClientId);
+    const clientId = selectedClientId;
     try {
       setLoading(true);
       setDocType(type);
@@ -75,16 +73,12 @@ export default function DocumentPanel({ clients }: DocumentPanelProps) {
         <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-gray-500 mb-1 block">利用者を選択</label>
-            <Select value={selectedClientId} onValueChange={(v) => setSelectedClientId(v || '')}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="利用者を選択..." />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map(c => (
-                  <SelectItem key={c.id} value={String(c.id)}>{resolve(c.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(c.pseudonym_hash)?.given_name ?? ''}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ClientCombobox
+              clients={clients}
+              value={selectedClientId}
+              onChange={setSelectedClientId}
+              placeholder="利用者を検索..."
+            />
           </div>
           <div className="space-y-2">
             <Button

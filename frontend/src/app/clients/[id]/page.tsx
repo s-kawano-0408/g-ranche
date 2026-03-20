@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Plus, Sparkles, User, Calendar, Pencil } from 'lucide-react';
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
-import { getClient, getSupportPlans, getCaseRecords, getSchedules, createCaseRecord, generateSupportPlan } from '@/lib/api';
+import { getClient, getSupportPlans, getCaseRecords, getSchedules, createCaseRecord, updateCaseRecord, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
 import { usePseudonym } from '@/contexts/PseudonymContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +52,7 @@ export default function ClientDetailPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRecordForm, setShowRecordForm] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<CaseRecord | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState('');
@@ -82,6 +83,12 @@ export default function ClientDetailPage() {
   const handleAddRecord = async (data: Omit<CaseRecord, 'id'>) => {
     const newRecord = await createCaseRecord(data);
     setRecords(prev => [newRecord, ...prev]);
+  };
+
+  const handleUpdateRecord = async (data: Omit<CaseRecord, 'id'>) => {
+    if (!editingRecord) return;
+    const updated = await updateCaseRecord(editingRecord.id, data);
+    setRecords(prev => prev.map(r => r.id === editingRecord.id ? updated : r));
   };
 
   const handleGeneratePlan = async () => {
@@ -286,7 +293,7 @@ export default function ClientDetailPage() {
                   新規記録
                 </Button>
               </div>
-              <RecordTimeline records={records} clients={[client]} />
+              <RecordTimeline records={records} clients={[client]} onEdit={setEditingRecord} />
             </div>
           </TabsContent>
 
@@ -337,6 +344,16 @@ export default function ClientDetailPage() {
         clients={[client]}
         defaultClientId={client.id}
       />
+
+      {editingRecord && (
+        <RecordForm
+          open={!!editingRecord}
+          onClose={() => setEditingRecord(null)}
+          onSubmit={handleUpdateRecord}
+          clients={[client]}
+          initialData={editingRecord}
+        />
+      )}
 
       {showEditForm && personal && (
         <ClientForm

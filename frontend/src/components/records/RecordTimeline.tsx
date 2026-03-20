@@ -1,7 +1,7 @@
 'use client';
 
 import { CaseRecord, Client } from '@/types';
-import { MessageSquare, Home, Phone, BarChart2, Users } from 'lucide-react';
+import { MessageSquare, Home, Phone, BarChart2, Users, Pencil } from 'lucide-react';
 import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string; label: string }> = {
@@ -15,9 +15,10 @@ const typeConfig: Record<string, { icon: React.ReactNode; color: string; bgColor
 interface RecordTimelineProps {
   records: CaseRecord[];
   clients?: Client[];
+  onEdit?: (record: CaseRecord) => void;
 }
 
-export default function RecordTimeline({ records, clients }: RecordTimelineProps) {
+export default function RecordTimeline({ records, clients, onEdit }: RecordTimelineProps) {
   const { resolve } = usePseudonym();
 
   if (records.length === 0) {
@@ -55,9 +56,20 @@ export default function RecordTimeline({ records, clients }: RecordTimelineProps
                       </span>
                     )}
                   </div>
-                  <time className="text-xs text-gray-400">
-                    {new Date(record.record_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
-                  </time>
+                  <div className="flex items-center gap-2">
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(record)}
+                        className="text-gray-400 hover:text-teal-600 transition-colors"
+                        title="編集"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    <time className="text-xs text-gray-400">
+                      {new Date(record.record_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </time>
+                  </div>
                 </div>
                 <p className="text-sm text-gray-700 leading-relaxed">{record.content}</p>
                 {record.summary && (

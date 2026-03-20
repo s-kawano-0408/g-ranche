@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { usePseudonym } from '@/contexts/PseudonymContext';
+import ClientCombobox from '@/components/clients/ClientCombobox';
 
 interface ScheduleFormProps {
   open: boolean;
@@ -108,7 +108,6 @@ function formatTime(date: Date): string {
 }
 
 export default function ScheduleForm({ open, onClose, onSubmit, clients, initialData, defaultDate }: ScheduleFormProps) {
-  const { resolve } = usePseudonym();
 
   const [form, setForm] = useState({
     title: '',
@@ -154,10 +153,6 @@ export default function ScheduleForm({ open, onClose, onSubmit, clients, initial
     setForm(prev => ({ ...prev, [key]: value ?? null }));
   };
 
-  const getClientName = (client: Client): string => {
-    const personal = resolve(client.pseudonym_hash);
-    return personal ? `${personal.family_name} ${personal.given_name}` : '仮名利用者';
-  };
 
   const handleSubmit = async () => {
     if (!form.title) return;
@@ -206,16 +201,14 @@ export default function ScheduleForm({ open, onClose, onSubmit, clients, initial
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">利用者</label>
-              <select
-                value={form.client_id !== null ? String(form.client_id) : ''}
-                onChange={e => set('client_id', e.target.value === '' ? null : Number(e.target.value))}
-                className="w-full h-10 px-3 rounded-md border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
-              >
-                <option value="">選択なし</option>
-                {clients.map(c => (
-                  <option key={c.id} value={String(c.id)}>{getClientName(c)}</option>
-                ))}
-              </select>
+              <ClientCombobox
+                clients={clients}
+                value={form.client_id}
+                onChange={id => set('client_id', id)}
+                allowEmpty
+                emptyLabel="選択なし"
+                placeholder="利用者を検索..."
+              />
             </div>
           </div>
 
