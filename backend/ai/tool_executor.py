@@ -1,6 +1,6 @@
 from datetime import datetime, date, timedelta
 from typing import Any, Dict, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select, and_, func
 
 from models.client import Client
@@ -173,26 +173,16 @@ class ToolExecutor:
             stmt = stmt.where(Schedule.schedule_type == schedule_type)
 
         stmt = stmt.order_by(Schedule.start_datetime)
+        stmt = stmt.options(
+            selectinload(Schedule.client),
+            selectinload(Schedule.staff)
+        )
         schedules = self.db.execute(stmt).scalars().all()
 
         schedules_list = []
         for s in schedules:
-            # Get client hash if available
-            client_hash = None
-            if s.client_id:
-                client_obj = self.db.execute(
-                    select(Client).where(Client.id == s.client_id)
-                ).scalar_one_or_none()
-                if client_obj:
-                    client_hash = client_obj.pseudonym_hash
-
-            # Get staff name
-            staff_name = None
-            staff_obj = self.db.execute(
-                select(Staff).where(Staff.id == s.staff_id)
-            ).scalar_one_or_none()
-            if staff_obj:
-                staff_name = staff_obj.name
+            client_hash = s.client.pseudonym_hash if s.client else None
+            staff_name = s.staff.name if s.staff else None
 
             schedules_list.append({
                 "id": s.id,
@@ -229,23 +219,20 @@ class ToolExecutor:
             stmt = stmt.where(and_(*conditions))
 
         stmt = stmt.order_by(CaseRecord.record_date.desc()).limit(limit)
+        stmt = stmt.options(
+            selectinload(CaseRecord.client),
+            selectinload(CaseRecord.staff),
+        )
         records = self.db.execute(stmt).scalars().all()
 
         records_list = []
         for r in records:
-            client_obj = self.db.execute(
-                select(Client).where(Client.id == r.client_id)
-            ).scalar_one_or_none()
-            staff_obj = self.db.execute(
-                select(Staff).where(Staff.id == r.staff_id)
-            ).scalar_one_or_none()
-
             records_list.append({
                 "id": r.id,
                 "client_id": r.client_id,
-                "client_hash": client_obj.pseudonym_hash if client_obj else None,
+                "client_hash": r.client.pseudonym_hash if r.client else None,
                 "staff_id": r.staff_id,
-                "staff_name": staff_obj.name if staff_obj else None,
+                "staff_name": r.staff.name if r.staff else None,
                 "record_date": self._format_date(r.record_date),
                 "record_type": r.record_type,
                 "content": r.content,
