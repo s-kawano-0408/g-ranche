@@ -52,3 +52,36 @@ export async function clearAll(): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
 }
+
+// CryptoKeyオブジェクトをIndexedDBに保存する（リロード時の復元用）
+const CRYPTO_KEY_NAME = 'session_crypto_key';
+
+export async function saveCryptoKey(key: CryptoKey): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(key, CRYPTO_KEY_NAME);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function loadCryptoKey(): Promise<CryptoKey | null> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get(CRYPTO_KEY_NAME);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteCryptoKey(): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(CRYPTO_KEY_NAME);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
