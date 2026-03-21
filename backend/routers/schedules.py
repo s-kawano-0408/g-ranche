@@ -37,7 +37,7 @@ def get_today_schedules(
     return schedules
 
 
-@router.get("/", response_model=List[ScheduleResponse])
+@router.get("", response_model=List[ScheduleResponse])
 def list_schedules(
     start_date: Optional[str] = Query(None, description="開始日（YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="終了日（YYYY-MM-DD）"),
@@ -79,7 +79,7 @@ def list_schedules(
     return schedules
 
 
-@router.post("/", response_model=ScheduleResponse, status_code=201)
+@router.post("", response_model=ScheduleResponse, status_code=201)
 def create_schedule(schedule_in: ScheduleCreate, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """新しいスケジュールを作成します。"""
     schedule = Schedule(**schedule_in.model_dump())

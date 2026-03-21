@@ -11,7 +11,7 @@ from auth import get_current_user
 router = APIRouter()
 
 
-@router.get("/", response_model=List[CaseRecordResponse])
+@router.get("", response_model=List[CaseRecordResponse])
 def list_case_records(
     client_id: Optional[int] = Query(None, description="利用者IDでフィルタリング"),
     staff_id: Optional[int] = Query(None, description="スタッフIDでフィルタリング"),
@@ -39,7 +39,7 @@ def list_case_records(
     return records
 
 
-@router.post("/", response_model=CaseRecordResponse, status_code=201)
+@router.post("", response_model=CaseRecordResponse, status_code=201)
 def create_case_record(record_in: CaseRecordCreate, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """新しい支援記録を作成します。"""
     record = CaseRecord(**record_in.model_dump())

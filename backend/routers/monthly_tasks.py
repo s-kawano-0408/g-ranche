@@ -11,7 +11,7 @@ from auth import get_current_user
 router = APIRouter()
 
 
-@router.get("/", response_model=List[MonthlyTaskResponse])
+@router.get("", response_model=List[MonthlyTaskResponse])
 def list_monthly_tasks(
     year: Optional[int] = Query(None, description="年で絞り込み"),
     month: Optional[int] = Query(None, description="月で絞り込み"),
@@ -37,7 +37,7 @@ def list_monthly_tasks(
     return tasks
 
 
-@router.put("/", response_model=MonthlyTaskResponse)
+@router.put("", response_model=MonthlyTaskResponse)
 def upsert_monthly_task(
     task_in: MonthlyTaskCreate,
     db: Session = Depends(get_db),
@@ -67,7 +67,7 @@ def upsert_monthly_task(
         return task
 
 
-@router.delete("/", status_code=204)
+@router.delete("", status_code=204)
 def delete_monthly_task(
     client_id: int = Query(..., description="利用者ID"),
     year: int = Query(..., description="年"),

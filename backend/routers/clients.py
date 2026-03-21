@@ -12,7 +12,7 @@ from auth import get_current_user, require_admin
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ClientResponse])
+@router.get("", response_model=List[ClientResponse])
 def list_clients(
     client_type: Optional[str] = Query(None, description="児/者で絞り込み"),
     status: Optional[str] = Query(None, description="状態で検索"),
@@ -36,7 +36,7 @@ def list_clients(
     return clients
 
 
-@router.post("/", response_model=ClientResponse, status_code=201)
+@router.post("", response_model=ClientResponse, status_code=201)
 def create_client(client_in: ClientCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     """新しい利用者を登録します。（管理者のみ）"""
     pseudonym_hash = generate_hash(client_in.certificate_number, str(client_in.birth_date))

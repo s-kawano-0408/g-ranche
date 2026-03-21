@@ -12,7 +12,7 @@ from auth import get_current_user
 router = APIRouter()
 
 
-@router.get("/", response_model=List[SupportPlanResponse])
+@router.get("", response_model=List[SupportPlanResponse])
 def list_support_plans(
     client_id: Optional[int] = Query(None, description="利用者IDでフィルタリング"),
     db: Session = Depends(get_db),
@@ -27,7 +27,7 @@ def list_support_plans(
     return plans
 
 
-@router.post("/", response_model=SupportPlanResponse, status_code=201)
+@router.post("", response_model=SupportPlanResponse, status_code=201)
 def create_support_plan(plan_in: SupportPlanCreate, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """新しい支援計画を作成します。"""
     # Verify client exists
