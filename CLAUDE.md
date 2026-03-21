@@ -45,7 +45,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env    # APIキーを設定
 
 ## 技術スタック
 - **Backend**: Python + FastAPI + SQLAlchemy + SQLite（ローカル）/ PostgreSQL（本番）
-- **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS 4 + shadcn/ui
+- **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS 4 + shadcn/ui + SWR
 - **AI**: Anthropic Python SDK (claude-sonnet-4-6) + Streaming + Tool Use + Prompt Caching
 - **デプロイ**: Docker Compose + Caddy（自動HTTPS）on Oracle Cloud VM
 
@@ -179,7 +179,7 @@ g-ranche/
 ### 暗号化（個人情報保護）
 - マッピングデータは **IndexedDB + AES-256-GCM** で暗号化保存
 - 暗号鍵はログインパスワードから **PBKDF2**（10万回反復）で導出
-- 鍵はメモリ上にのみ存在（`CryptoKey` オブジェクト、エクスポート不可）
+- 鍵は **IndexedDB に永続化**（`CryptoKey` オブジェクト、`extractable: false` でエクスポート不可）
 - salt はユーザーごとにランダム生成、IndexedDB に保存
 - IV（初期化ベクトル）は暗号化のたびにランダム生成
 - ライブラリ: Web Crypto API（ブラウザ標準）
@@ -202,7 +202,6 @@ g-ranche/
 - `credentials: include` を使うため、ワイルドカード `*` は使用不可
 
 ### 既知の制約
-- **ページリフレッシュ**: F5 で暗号鍵がメモリから消える → 再ログインが必要
 - **パスワード変更**: 暗号鍵が変わるため、変更後にマッピングの再インポートが必要
 - 本番デプロイ時は `ENVIRONMENT=production` を設定すること（Cookie の `secure` フラグ）
 
