@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePseudonym } from "@/contexts/PseudonymContext";
 
 export default function ClientsPage() {
   const { clients, loading, error, addClient } = useClients();
@@ -18,22 +17,16 @@ export default function ClientsPage() {
   const [clientTypeFilter, setClientTypeFilter] = useState<string>("すべて");
   const [statusFilter, setStatusFilter] = useState<string>("利用中");
   const { user } = useAuth();
-  const { resolve } = usePseudonym();
 
   const filtered = useMemo(() => {
     const result = clients.filter((c) => {
-      // 名前検索（マッピングがあるクライアントのみ検索対象）
+      // 名前検索
       let matchSearch = true;
       if (search) {
-        const personal = resolve(c.pseudonym_hash);
-        if (personal) {
-          const fullName = `${personal.family_name}${personal.given_name}`;
-          const fullNameKana = `${personal.family_name_kana}${personal.given_name_kana}`;
-          matchSearch =
-            fullName.includes(search) || fullNameKana.includes(search);
-        } else {
-          matchSearch = false;
-        }
+        const fullName = `${c.family_name}${c.given_name}`;
+        const fullNameKana = `${c.family_name_kana}${c.given_name_kana}`;
+        matchSearch =
+          fullName.includes(search) || fullNameKana.includes(search);
       }
       const matchClientType =
         clientTypeFilter === "すべて" || c.client_type === clientTypeFilter;
@@ -46,21 +39,15 @@ export default function ClientsPage() {
       return matchSearch && matchClientType && matchStatus;
     });
 
-    // マッピングのフリガナでソート（マッピングがない人は末尾）
+    // フリガナでソート
     result.sort((a, b) => {
-      const pa = resolve(a.pseudonym_hash);
-      const pb = resolve(b.pseudonym_hash);
-      const kanaA = pa
-        ? `${pa.family_name_kana}${pa.given_name_kana}`
-        : "\uffff";
-      const kanaB = pb
-        ? `${pb.family_name_kana}${pb.given_name_kana}`
-        : "\uffff";
+      const kanaA = `${a.family_name_kana}${a.given_name_kana}`;
+      const kanaB = `${b.family_name_kana}${b.given_name_kana}`;
       return kanaA.localeCompare(kanaB, "ja");
     });
 
     return result;
-  }, [clients, search, clientTypeFilter, statusFilter, resolve]);
+  }, [clients, search, clientTypeFilter, statusFilter]);
 
   return (
     <div className="flex flex-col flex-1">
@@ -79,7 +66,7 @@ export default function ClientsPage() {
         )}
       </Header>
 
-      <div className="flex-1 p-8 space-y-6">
+      <div className="flex-1 p-4 sm:p-8 space-y-6">
         <ClientSearch
           search={search}
           onSearchChange={setSearch}
@@ -123,8 +110,7 @@ export default function ClientsPage() {
         open={showForm}
         onClose={() => setShowForm(false)}
         onSubmit={async (data) => {
-          const newClient = await addClient(data);
-          return { pseudonym_hash: newClient.pseudonym_hash };
+          await addClient(data);
         }}
       />
     </div>

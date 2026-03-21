@@ -64,9 +64,7 @@ g-ranche/
 │   ├── main.py              # FastAPI エントリポイント
 │   ├── database.py          # DB接続セットアップ（SQLite/PostgreSQL自動切替）
 │   ├── Dockerfile           # バックエンドのDockerイメージ定義
-│   ├── seed.py              # サンプルデータ（スタッフ2名・利用者5名・計画・記録・スケジュール）
-│   ├── pseudonym.py         # 仮名化ハッシュ生成ユーティリティ
-│   ├── migrate_pseudonym.py # 既存DBの仮名化マイグレーション
+│   ├── seed.py              # サンプルデータ（スタッフ2名・利用者200名・計画・記録・スケジュール）
 │   ├── models/              # SQLAlchemy テーブル定義
 │   │   ├── client.py        # 利用者
 │   │   ├── staff.py         # スタッフ
@@ -100,8 +98,7 @@ g-ranche/
         │   └── ai/          # AIアシスタント
         ├── middleware.ts     # nonceベースCSPヘッダー生成
         ├── contexts/        # Reactコンテキスト
-        │   ├── AuthContext.tsx      # 認証状態管理（Cookie + 暗号鍵 + 自動ロック）
-        │   └── PseudonymContext.tsx # 仮名化マッピング管理（IndexedDB + AES暗号化）
+        │   └── AuthContext.tsx      # 認証状態管理（Cookie + 自動ロック）
         ├── components/      # UIコンポーネント
         │   ├── clients/ClientCombobox.tsx # 検索可能な利用者選択（共通コンポーネント）
         │   └── layout/      # Sidebar, Header
@@ -109,16 +106,13 @@ g-ranche/
         │   ├── useAIStream.ts      # AIストリーミング
         │   └── useAutoLock.ts      # 自動ロック（30分無操作でログアウト）
         ├── lib/             # ユーティリティ
-        │   ├── api.ts              # APIクライアント（credentials: include）
-        │   ├── crypto.ts           # AES-GCM暗号化・PBKDF2鍵導出
-        │   ├── indexeddb.ts        # IndexedDBラッパー
-        │   └── migrate-storage.ts  # localStorage → IndexedDB移行
+        │   └── api.ts              # APIクライアント（credentials: include）
         └── types/           # TypeScript型定義
 ```
 
 ## API エンドポイント
-- `GET/POST /api/clients` - 利用者一覧・新規作成
-- `GET/PUT/DELETE /api/clients/{id}` - 利用者詳細・更新（管理者のみ、certificate_number/birth_date変更時はハッシュ再計算）・削除
+- `GET/POST /api/clients` - 利用者一覧（フリガナ順でソート）・新規作成
+- `GET/PUT/DELETE /api/clients/{id}` - 利用者詳細・更新（管理者のみ）・削除
 - `GET/POST /api/support-plans` - 支援計画
 - `GET/POST/PUT /api/records` - 支援記録
 - `GET/POST/PUT /api/schedules` - スケジュール
@@ -155,12 +149,14 @@ g-ranche/
 
 ## データベース (SQLite / PostgreSQL)
 - `staffs` - スタッフ情報
-- `clients` - 利用者情報（仮名化済み）
-  - pseudonym_hash（仮名化ハッシュ）必須・ユニーク
-  - gender（性別）
+- `clients` - 利用者情報
+  - family_name, given_name（姓・名）必須
+  - family_name_kana, given_name_kana（フリガナ）必須
+  - birth_date（生年月日）必須
+  - certificate_number（受給者証番号）必須
+  - gender（性別）任意
   - client_type（"児"/"者"）必須
   - staff_id, status（active/inactive）, end_date（終了日＝論理削除）, notes
-  - ※ 姓名・フリガナ・生年月日・受給者証番号はDBに保存しない
 - `support_plans` - 個別支援計画書
 - `case_records` - 支援記録
 - `schedules` - スケジュール
@@ -175,14 +171,6 @@ g-ranche/
 - JavaScript から Cookie にアクセスできない（XSS でトークン窃取不可）
 - Cookie 設定: `httponly=True`, `samesite=lax`, `secure=環境依存`（本番は `True`）
 - トークン有効期限: 8時間
-
-### 暗号化（個人情報保護）
-- マッピングデータは **IndexedDB + AES-256-GCM** で暗号化保存
-- 暗号鍵はログインパスワードから **PBKDF2**（10万回反復）で導出
-- 鍵は **IndexedDB に永続化**（`CryptoKey` オブジェクト、`extractable: false` でエクスポート不可）
-- salt はユーザーごとにランダム生成、IndexedDB に保存
-- IV（初期化ベクトル）は暗号化のたびにランダム生成
-- ライブラリ: Web Crypto API（ブラウザ標準）
 
 ### セキュリティヘッダー
 - **CSP**（`middleware.ts`で設定）:
@@ -202,33 +190,7 @@ g-ranche/
 - `credentials: include` を使うため、ワイルドカード `*` は使用不可
 
 ### 既知の制約
-- **パスワード変更**: 暗号鍵が変わるため、変更後にマッピングの再インポートが必要
 - 本番デプロイ時は `ENVIRONMENT=production` を設定すること（Cookie の `secure` フラグ）
-
-## 仮名化（個人情報保護）
-DBに個人情報を保存せず、ハッシュ値のみ保存する仕組み。
-
-### 仕組み
-- `certificate_number + birth_date` → SHA-256 → 16文字ハッシュ
-- 個人情報はブラウザの **IndexedDB**（AES-GCM暗号化）+ JSONファイルでローカル管理
-- ハッシュは決定的（同じ入力なら同じ結果）なので、JSONを紛失しても受給者証番号+生年月日から復元可能
-
-### JSONマッピングファイル
-- 新規登録時に自動ダウンロード
-- 設定ページからインポート/エクスポート/復元が可能
-- マッピングがない利用者は「仮名利用者」と表示される
-
-### マイグレーション（既存DB → 仮名化）
-```bash
-cd backend
-~/.local/bin/uv run python migrate_pseudonym.py
-```
-- 既存の個人情報をJSONに退避してDBから削除
-- 出力された `pseudonym_mapping.json` を安全に保管すること
-
-### マイグレーション（localStorage → IndexedDB）
-- 初回ログイン時に自動実行（`migrate-storage.ts`）
-- localStorage の平文データを暗号化して IndexedDB に保存 → localStorage から削除
 
 ## デプロイ
 
@@ -250,7 +212,6 @@ fly deploy --no-cache         # キャッシュなし再ビルド（フロント
 fly ssh console --app g-ranche -C "rm -f /data/g_ranche.db"
 fly deploy --no-cache
 # 起動時に自動で seed.py が実行される
-# マッピングJSONは https://g-ranche.fly.dev/seed_pseudonym_mapping.json からDL
 ```
 
 #### 関連ファイル
@@ -289,6 +250,5 @@ docker compose --env-file .env.production up -d --build
 - 本番は PostgreSQL（`DATABASE_URL` 環境変数で切替）
 - CORSは環境変数 `ALLOWED_ORIGINS` で制御（デフォルト: `http://localhost:3000`、ワイルドカード `*` は不可）
 - 本番環境では `ENVIRONMENT=production` を設定（Cookie の secure フラグ用）
-- `seed.py` 実行時に `seed_pseudonym_mapping.json` が出力される（フロントでインポートして使用）
 - `seed.py` は200名の利用者 + 支援計画 + 支援記録 + スケジュール + 月間業務を生成
 - `.env.production` と `pgdata/` は `.gitignore` でGit管理外

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Client } from '@/types';
-import { usePseudonym } from '@/contexts/PseudonymContext';
 import { Search } from 'lucide-react';
 
 interface ClientComboboxProps {
@@ -24,7 +23,6 @@ export default function ClientCombobox({
   emptyLabel = '全利用者',
   className = '',
 }: ClientComboboxProps) {
-  const { resolve } = usePseudonym();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -52,13 +50,11 @@ export default function ClientCombobox({
   }, [isOpen]);
 
   const getClientName = (client: Client): string => {
-    const p = resolve(client.pseudonym_hash);
-    return p ? `${p.family_name} ${p.given_name}` : '仮名利用者';
+    return `${client.family_name} ${client.given_name}`;
   };
 
   const getClientKana = (client: Client): string => {
-    const p = resolve(client.pseudonym_hash);
-    return p ? `${p.family_name_kana} ${p.given_name_kana}` : '';
+    return `${client.family_name_kana} ${client.given_name_kana}`;
   };
 
   const filtered = useMemo(() => {
@@ -69,7 +65,6 @@ export default function ClientCombobox({
       const kana = getClientKana(c).toLowerCase();
       return name.includes(q) || kana.includes(q);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients, search]);
 
   const selectedClient = clients.find(c => c.id === value);
@@ -129,9 +124,7 @@ export default function ClientCombobox({
                   }`}
                 >
                   <span>{getClientName(c)}</span>
-                  {getClientKana(c) && (
-                    <span className="ml-2 text-xs text-gray-400">{getClientKana(c)}</span>
-                  )}
+                  <span className="ml-2 text-xs text-gray-400">{getClientKana(c)}</span>
                 </button>
               ))
             )}

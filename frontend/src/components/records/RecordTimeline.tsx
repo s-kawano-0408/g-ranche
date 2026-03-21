@@ -2,7 +2,6 @@
 
 import { CaseRecord, Client } from '@/types';
 import { MessageSquare, Home, Phone, BarChart2, Users, Pencil } from 'lucide-react';
-import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string; label: string }> = {
   面談: { icon: <MessageSquare size={14} />, color: 'text-blue-600', bgColor: 'bg-blue-100', label: '面談' },
@@ -19,8 +18,6 @@ interface RecordTimelineProps {
 }
 
 export default function RecordTimeline({ records, clients, onEdit }: RecordTimelineProps) {
-  const { resolve } = usePseudonym();
-
   if (records.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400">
@@ -52,7 +49,7 @@ export default function RecordTimeline({ records, clients, onEdit }: RecordTimel
                     </span>
                     {client && (
                       <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">
-                        {resolve(client.pseudonym_hash)?.family_name ?? '仮名利用者'} {resolve(client.pseudonym_hash)?.given_name ?? ''}
+                        {client.family_name} {client.given_name}
                       </span>
                     )}
                   </div>

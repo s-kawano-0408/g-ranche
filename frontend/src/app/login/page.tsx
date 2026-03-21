@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setKeyAndLoad } = useAuth();
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,13 +21,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ① APIでログイン（サーバーがCookieにトークンをセット）
+      // APIでログイン（サーバーがCookieにトークンをセット）
       await login(email, password);
 
-      // ② パスワードから暗号鍵を導出 → IndexedDBのデータを復号
-      await setKeyAndLoad(password);
+      // ユーザー情報を取得してAuthContextのstateを更新
+      await refreshUser();
 
-      // ③ ダッシュボードへ遷移（router.pushでメモリを保持したまま遷移）
+      // ダッシュボードへ遷移
       router.push("/dashboard");
     } catch {
       setError("ログインに失敗しました");

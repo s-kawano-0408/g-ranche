@@ -6,7 +6,6 @@ from sqlalchemy import select, and_
 from database import get_db
 from models.client import Client
 from schemas.client import ClientCreate, ClientUpdate, ClientResponse
-from pseudonym import generate_hash
 from auth import get_current_user, require_admin
 
 router = APIRouter()
@@ -31,7 +30,7 @@ def list_clients(
     if conditions:
         stmt = stmt.where(and_(*conditions))
 
-    stmt = stmt.order_by(Client.pseudonym_hash)
+    stmt = stmt.order_by(Client.family_name_kana, Client.given_name_kana)
     clients = db.execute(stmt).scalars().all()
     return clients
 
@@ -39,9 +38,13 @@ def list_clients(
 @router.post("", response_model=ClientResponse, status_code=201)
 def create_client(client_in: ClientCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     """新しい利用者を登録します。（管理者のみ）"""
-    pseudonym_hash = generate_hash(client_in.certificate_number, str(client_in.birth_date))
     client = Client(
-        pseudonym_hash=pseudonym_hash,
+        family_name=client_in.family_name,
+        given_name=client_in.given_name,
+        family_name_kana=client_in.family_name_kana,
+        given_name_kana=client_in.given_name_kana,
+        birth_date=client_in.birth_date,
+        certificate_number=client_in.certificate_number,
         gender=client_in.gender,
         client_type=client_in.client_type,
         staff_id=client_in.staff_id,
@@ -78,18 +81,6 @@ def update_client(
         raise HTTPException(status_code=404, detail="利用者が見つかりません")
 
     update_data = client_in.model_dump(exclude_unset=True)
-
-    # 受給者証番号 or 生年月日が変更された場合、ハッシュを再計算
-    cert = update_data.pop("certificate_number", None)
-    bd = update_data.pop("birth_date", None)
-    if cert is not None or bd is not None:
-        # フロントエンドからcertificate_numberとbirth_dateの両方を必ず送ってもらう
-        if cert is None or bd is None:
-            raise HTTPException(
-                status_code=400,
-                detail="受給者証番号と生年月日は両方指定してください",
-            )
-        client.pseudonym_hash = generate_hash(cert, str(bd))
 
     for key, value in update_data.items():
         setattr(client, key, value)

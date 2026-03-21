@@ -1,11 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePseudonym } from '@/contexts/PseudonymContext';
-import { deriveKey, generateSalt } from '@/lib/crypto';
-import { loadEncrypted, saveEncrypted, saveCryptoKey, loadCryptoKey } from '@/lib/indexeddb';
-import { migrateFromLocalStorage } from '@/lib/migrate-storage';
 import { useAutoLock } from '@/hooks/useAutoLock';
 import { logout as apiLogout } from '@/lib/api';
 
@@ -22,24 +18,17 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   logout: () => void;
-  setKeyAndLoad: (password: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 // Context を作成（初期値は null）
 const AuthContext = createContext<AuthContextType | null>(null);
-
-// saltをIndexedDBに保存する際のキー
-const SALT_KEY = 'encryption_salt';
 
 // AuthProvider: アプリ全体をラップして認証状態を管理する
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { setEncryptionKey, clearMappings } = usePseudonym();
-
-  // 暗号鍵をメモリに保持（画面には関係ないのでuseRef）
-  const keyRef = useRef<CryptoKey | null>(null);
 
   // ページ読み込み時にCookieのトークンを確認して、ユーザー情報を取得する
   useEffect(() => {
@@ -54,13 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const userData = await res.json();
           setUser(userData);
-
-          // リロード時: IndexedDBからCryptoKeyを復元してマッピングを読み込む
-          const savedKey = await loadCryptoKey();
-          if (savedKey) {
-            keyRef.current = savedKey;
-            await setEncryptionKey(savedKey);
-          }
         }
       } catch {
         // ネットワークエラーなど
@@ -70,67 +52,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     checkAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // パスワードから暗号鍵を導出し、PseudonymContextにデータを読み込む
-  const setKeyAndLoad = async (password: string) => {
-    // IndexedDBからsaltを読み出す（なければ新規生成して保存）
-    const existing = await loadEncrypted(SALT_KEY);
-    let saltBase64: string;
-
-    if (existing?.salt) {
-      saltBase64 = existing.salt;
-    } else {
-      // 初回ログイン時: saltを生成してIndexedDBに保存
-      const newSalt = generateSalt();
-      saltBase64 = btoa(String.fromCharCode(...newSalt));
-      await saveEncrypted(SALT_KEY, { iv: '', salt: saltBase64, ciphertext: '' });
-    }
-
-    // Base64をUint8Arrayに戻す
-    const salt = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
-
-    // パスワード + salt → 暗号鍵を導出
-    const key = await deriveKey(password, salt);
-    keyRef.current = key;
-
-    // CryptoKeyをIndexedDBに保存（リロード時に復元するため）
-    await saveCryptoKey(key);
-
-    // localStorageに旧データがあれば暗号化してIndexedDBに移行
-    const migrated = await migrateFromLocalStorage(key);
-    if (migrated) {
-      console.log('localStorageのデータをIndexedDBに移行しました');
-    }
-
-    // PseudonymContextに鍵を渡してデータを復号・読み込み
-    await setEncryptionKey(key);
-
-    // ユーザー情報を取得してstateにセット（router.pushではリロードしないため）
+  // ログイン後にユーザー情報を再取得する
+  const refreshUser = useCallback(async () => {
     const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
     const res = await fetch(`${BASE_URL}/api/auth/me`, { credentials: 'include' });
     if (res.ok) {
       const userData = await res.json();
       setUser(userData);
     }
-  };
+  }, []);
 
-  // ログアウト: Cookie削除 → メモリ上の鍵破棄 → マッピングクリア → ログイン画面へ
-  // ※ CryptoKeyはIndexedDBに残す（再ログイン時にすぐ名前を復元するため）
+  // ログアウト: Cookie削除 → ログイン画面へ
   const logout = useCallback(() => {
     apiLogout().catch(() => {}); // サーバーにCookie削除を依頼
-    keyRef.current = null;
-    clearMappings();
     setUser(null);
     router.push('/login');
-  }, [clearMappings, router]);
+  }, [router]);
 
   // 30分間操作がなかったら自動ログアウト（ログイン中のみ有効）
   useAutoLock(logout);
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, setKeyAndLoad }}>
+    <AuthContext.Provider value={{ user, loading, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

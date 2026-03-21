@@ -73,7 +73,7 @@ async def chat(
         ).scalar_one_or_none()
         if client:
             user_message_content = (
-                f"[現在参照中の利用者: ID={client.id}（ハッシュ: {client.pseudonym_hash}）]\n\n"
+                f"[現在参照中の利用者: ID={client.id}（{client.family_name} {client.given_name}）]\n\n"
                 + request.message
             )
 
@@ -137,7 +137,8 @@ async def generate_plan(
     # Build client info dict
     client_info = {
         "id": client.id,
-        "pseudonym_hash": client.pseudonym_hash,
+        "family_name": client.family_name,
+        "given_name": client.given_name,
         "gender": client.gender,
         "client_type": client.client_type,
         "status": client.status,
@@ -230,7 +231,8 @@ async def generate_report(
 
     client_info = {
         "id": client.id,
-        "pseudonym_hash": client.pseudonym_hash,
+        "family_name": client.family_name,
+        "given_name": client.given_name,
         "gender": client.gender,
         "client_type": client.client_type,
         "status": client.status,

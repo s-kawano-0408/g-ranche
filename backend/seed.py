@@ -2,7 +2,6 @@
 Seed script to populate the database with sample data.
 Run with: python seed.py
 """
-import json
 import random
 from datetime import datetime, date, timedelta
 
@@ -17,7 +16,6 @@ from models.schedule import Schedule
 from models.monthly_task import MonthlyTask
 from models.user import User
 from auth import hash_password
-from pseudonym import generate_hash
 
 
 # ── 名前データ ──────────────────────────────────────────────
@@ -156,7 +154,7 @@ def seed():
         today = date.today()
         random.seed(42)  # 再現性のため固定シード
 
-        personal_data_list = []
+        clients_list = []
         used_names = set()
 
         for i in range(200):
@@ -183,7 +181,7 @@ def seed():
                 birth_year = random.randint(2008, 2022)
             birth_month = random.randint(1, 12)
             birth_day = random.randint(1, 28)
-            birth_date = f"{birth_year}-{birth_month:02d}-{birth_day:02d}"
+            birth_date_val = date(birth_year, birth_month, birth_day)
 
             cert_number = f"131100{i + 1:04d}"
 
@@ -192,39 +190,22 @@ def seed():
 
             notes = random.choice(NOTES_CHILD if client_type == "児" else NOTES_ADULT)
 
-            personal_data_list.append({
-                "family_name": family[0], "given_name": given[0],
-                "family_name_kana": family[1], "given_name_kana": given[1],
-                "birth_date": birth_date, "certificate_number": cert_number,
-                "gender": gender, "client_type": client_type,
-                "staff_id": random.choice(staff_ids), "status": status,
-                "notes": notes,
-            })
-
-        # ハッシュ生成してDBに保存
-        pseudonym_mapping = {}
-        clients_list = []
-
-        for pd in personal_data_list:
-            h = generate_hash(pd["certificate_number"], pd["birth_date"])
-            pseudonym_mapping[h] = {
-                "family_name": pd["family_name"],
-                "given_name": pd["given_name"],
-                "family_name_kana": pd["family_name_kana"],
-                "given_name_kana": pd["given_name_kana"],
-                "birth_date": pd["birth_date"],
-                "certificate_number": pd["certificate_number"],
-            }
             end_date = None
-            if pd["status"] == "inactive":
+            if status == "inactive":
                 end_date = today - timedelta(days=random.randint(30, 365))
+
             client = Client(
-                pseudonym_hash=h,
-                gender=pd["gender"],
-                client_type=pd["client_type"],
-                staff_id=pd["staff_id"],
-                status=pd["status"],
-                notes=pd["notes"],
+                family_name=family[0],
+                given_name=given[0],
+                family_name_kana=family[1],
+                given_name_kana=given[1],
+                birth_date=birth_date_val,
+                certificate_number=cert_number,
+                gender=gender,
+                client_type=client_type,
+                staff_id=random.choice(staff_ids),
+                status=status,
+                notes=notes,
                 end_date=end_date,
             )
             clients_list.append(client)
@@ -234,13 +215,8 @@ def seed():
         for c in clients_list:
             db.refresh(c)
 
-        # JSONマッピングファイル出力
-        with open("seed_pseudonym_mapping.json", "w", encoding="utf-8") as f:
-            json.dump(pseudonym_mapping, f, ensure_ascii=False, indent=2)
-
         active_clients = [c for c in clients_list if c.status == "active"]
         print(f"利用者登録完了: {len(clients_list)}名（active: {len(active_clients)}名）")
-        print(f"マッピングファイル出力: seed_pseudonym_mapping.json（{len(pseudonym_mapping)}名分）")
 
         # ── Support Plans（activeな利用者全員に1件ずつ）──────────────
         services_pool = [
@@ -349,9 +325,7 @@ def seed():
                 else:
                     client = random.choice(active_clients)
                     client_id = client.id
-                    # クライアント名をマッピングから取得
-                    personal = pseudonym_mapping.get(client.pseudonym_hash, {})
-                    name = f"{personal.get('family_name', '?')}{personal.get('given_name', '?')}さん"
+                    name = f"{client.family_name}{client.given_name}さん"
                     titles = schedule_titles_by_type[schedule_type]
                     title = random.choice(titles).format(name=name)
 

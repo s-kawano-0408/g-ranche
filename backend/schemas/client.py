@@ -19,8 +19,12 @@ class ClientCreate(BaseModel):
 
 
 class ClientUpdate(BaseModel):
-    certificate_number: Optional[str] = None
+    family_name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name_kana: Optional[str] = None
+    given_name_kana: Optional[str] = None
     birth_date: Optional[date] = None
+    certificate_number: Optional[str] = None
     gender: Optional[str] = None
     client_type: Optional[str] = None
     staff_id: Optional[int] = None
@@ -31,7 +35,12 @@ class ClientUpdate(BaseModel):
 
 class ClientResponse(BaseModel):
     id: int
-    pseudonym_hash: str
+    family_name: str
+    given_name: str
+    family_name_kana: str
+    given_name_kana: str
+    birth_date: Optional[date] = None
+    certificate_number: Optional[str] = None
     gender: Optional[str] = None
     client_type: str
     staff_id: Optional[int] = None

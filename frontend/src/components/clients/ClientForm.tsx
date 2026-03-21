@@ -18,10 +18,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { usePseudonym, ClientPersonalInfo } from "@/contexts/PseudonymContext";
 import { updateClient } from "@/lib/api";
 
-// フォームのデータ型（個人情報を含む — APIに送るため）
+// フォームのデータ型
 interface ClientFormData {
   family_name: string;
   given_name: string;
@@ -40,12 +39,10 @@ interface ClientFormData {
 interface ClientFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Record<string, unknown>) => Promise<{ pseudonym_hash: string }>;
+  onSubmit: (data: Record<string, unknown>) => Promise<unknown>;
   initialData?: Partial<ClientFormData>;
   title?: string;
-  // 編集モード用（clientId + oldPseudonymHash があれば編集モード）
   clientId?: number;
-  oldPseudonymHash?: string;
 }
 
 const defaultData: ClientFormData = {
@@ -75,15 +72,13 @@ export default function ClientForm({
   initialData,
   title,
   clientId,
-  oldPseudonymHash,
 }: ClientFormProps) {
-  const isEditMode = clientId !== undefined && oldPseudonymHash !== undefined;
+  const isEditMode = clientId !== undefined;
   const [form, setForm] = useState<ClientFormData>({
     ...defaultData,
     ...initialData,
   });
   const [loading, setLoading] = useState(false);
-  const { addMapping, updateMapping, exportToFile } = usePseudonym();
 
   const set = (key: keyof ClientFormData, value: string | number | null) => {
     setForm((prev) => ({ ...prev, [key]: value ?? "" }));
@@ -111,19 +106,6 @@ export default function ClientForm({
     利用終了: "inactive",
   };
 
-  // JSONファイルを自動ダウンロードする（新規登録時のみ）
-  const downloadMapping = (hash: string, personal: ClientPersonalInfo) => {
-    const data = { [hash]: personal };
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pseudonym_${hash.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const handleSubmit = async () => {
     if (
       !form.family_name ||
@@ -138,43 +120,28 @@ export default function ClientForm({
     try {
       setLoading(true);
 
-      const personal: ClientPersonalInfo = {
-        family_name: form.family_name,
-        given_name: form.given_name,
-        family_name_kana: form.family_name_kana,
-        given_name_kana: form.given_name_kana,
-        birth_date: form.birth_date,
-        certificate_number: form.certificate_number,
-      };
-
       if (isEditMode) {
         // 編集モード: updateClient APIを呼ぶ
-        const result = await updateClient(clientId, {
+        await updateClient(clientId, {
+          family_name: form.family_name,
+          given_name: form.given_name,
+          family_name_kana: form.family_name_kana,
+          given_name_kana: form.given_name_kana,
+          birth_date: form.birth_date,
+          certificate_number: form.certificate_number,
           gender: form.gender || undefined,
           client_type: form.client_type,
           status: statusMap[form.status] || form.status,
           end_date: form.end_date || undefined,
           notes: form.notes || undefined,
-          certificate_number: form.certificate_number,
-          birth_date: form.birth_date,
         } as Record<string, unknown>);
-
-        // マッピング更新（ハッシュ変更の場合は旧削除+新追加）
-        updateMapping(oldPseudonymHash, result.pseudonym_hash, personal);
-
-        // 全員分のマッピングJSONを自動ダウンロード
-        // updateMapping の後に少し待ってからexportする（state更新を反映させるため）
-        setTimeout(() => exportToFile(), 100);
       } else {
         // 新規登録モード
-        const result = await onSubmit({
+        await onSubmit({
           ...form,
           status: statusMap[form.status] || form.status,
           end_date: form.end_date || null,
         });
-
-        addMapping(result.pseudonym_hash, personal);
-        downloadMapping(result.pseudonym_hash, personal);
       }
 
       onClose();

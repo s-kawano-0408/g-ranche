@@ -48,7 +48,12 @@ class ToolExecutor:
     def _client_to_dict(self, client: Client) -> Dict[str, Any]:
         return {
             "id": client.id,
-            "pseudonym_hash": client.pseudonym_hash,
+            "family_name": client.family_name,
+            "given_name": client.given_name,
+            "family_name_kana": client.family_name_kana,
+            "given_name_kana": client.given_name_kana,
+            "birth_date": self._format_date(client.birth_date),
+            "certificate_number": client.certificate_number,
             "gender": client.gender,
             "client_type": client.client_type,
             "staff_id": client.staff_id,
@@ -181,7 +186,7 @@ class ToolExecutor:
 
         schedules_list = []
         for s in schedules:
-            client_hash = s.client.pseudonym_hash if s.client else None
+            client_name = f"{s.client.family_name} {s.client.given_name}" if s.client else None
             staff_name = s.staff.name if s.staff else None
 
             schedules_list.append({
@@ -194,7 +199,7 @@ class ToolExecutor:
                 "notes": s.notes,
                 "status": s.status,
                 "client_id": s.client_id,
-                "client_hash": client_hash,
+                "client_name": client_name,
                 "staff_id": s.staff_id,
                 "staff_name": staff_name,
             })
@@ -230,7 +235,7 @@ class ToolExecutor:
             records_list.append({
                 "id": r.id,
                 "client_id": r.client_id,
-                "client_hash": r.client.pseudonym_hash if r.client else None,
+                "client_name": f"{r.client.family_name} {r.client.given_name}" if r.client else None,
                 "staff_id": r.staff_id,
                 "staff_name": r.staff.name if r.staff else None,
                 "record_date": self._format_date(r.record_date),
@@ -359,7 +364,7 @@ class ToolExecutor:
                 seen_client_ids.add(client.id)
                 clients_list.append({
                     "client_id": client.id,
-                    "client_hash": client.pseudonym_hash,
+                    "client_name": f"{client.family_name} {client.given_name}",
                     "client_type": client.client_type,
                     "next_monitoring_date": self._format_date(plan.next_monitoring_date),
                     "days_until_monitoring": (plan.next_monitoring_date - today).days,
