@@ -8,9 +8,9 @@ class CaseRecord(Base):
     __tablename__ = "case_records"
 
     id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
-    staff_id = Column(Integer, ForeignKey("staffs.id"), nullable=False)
-    record_date = Column(DateTime, nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
+    staff_id = Column(Integer, ForeignKey("staffs.id"), nullable=False, index=True)
+    record_date = Column(DateTime, nullable=False, index=True)
     record_type = Column(String)  # "面談"/"訪問"/"電話"/"モニタリング"/"サービス担当者会議"/"その他"
     content = Column(Text)
     summary = Column(Text)

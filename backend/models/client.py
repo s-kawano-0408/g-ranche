@@ -11,8 +11,8 @@ class Client(Base):
     pseudonym_hash = Column(String, unique=True, nullable=False)
     gender = Column(String)
     client_type = Column(String, nullable=False)  # "児"/"者"
-    staff_id = Column(Integer, ForeignKey("staffs.id"))
-    status = Column(String, default="active")  # "active"/"inactive"
+    staff_id = Column(Integer, ForeignKey("staffs.id"), index=True)
+    status = Column(String, default="active", index=True)  # "active"/"inactive"
     notes = Column(Text)
     end_date = Column(Date)
     created_at = Column(DateTime, default=datetime.utcnow)

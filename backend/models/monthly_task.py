@@ -8,7 +8,7 @@ class MonthlyTask(Base):
     __tablename__ = "monthly_tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
     year = Column(Integer, nullable=False)
     month = Column(Integer, nullable=False)
     task_type = Column(String, nullable=False)  # "モニタ"/"最終モニタ"/"更新"/"新+モニ"/"その他"

@@ -8,7 +8,7 @@ class SupportPlan(Base):
     __tablename__ = "support_plans"
 
     id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
     plan_date = Column(Date)
     long_term_goal = Column(Text)
     short_term_goal = Column(Text)
