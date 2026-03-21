@@ -48,6 +48,15 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env    # APIキーを設定
 - **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS 4 + shadcn/ui + SWR
 - **AI**: Anthropic Python SDK (claude-sonnet-4-6) + Streaming + Tool Use + Prompt Caching
 - **デプロイ**: Docker Compose + Caddy（自動HTTPS）on Oracle Cloud VM
+- **レスポンシブ対応**: モバイル・タブレット・デスクトップ対応済み（Tailwind ブレイクポイント: sm/lg）
+
+## レスポンシブデザイン
+- Sidebar: デスクトップ固定表示 / モバイルはハンバーガーメニュー + ドロワー（`lg:` で切替）
+- Header: ハンバーガーボタン用の左余白（`pl-10 lg:pl-0`）
+- 全ページ: `p-4 sm:p-8` のレスポンシブパディング
+- カレンダー: モバイルではセル縮小 + 件数バッジ表示、デスクトップではスケジュール名表示
+- AIページ: ドキュメントパネルはデスクトップのみ表示（`hidden lg:flex`）
+- 月間業務: ヘッダー・フィルターは `flex-wrap` で折り返し対応
 
 ## プロジェクト構成
 ```
