@@ -117,12 +117,20 @@ export default function MonthlyTasksPage() {
     try {
       if (value === '') {
         await deleteMonthlyTask(clientId, year, month);
+        setTasks(prev => prev.filter(t => !(t.client_id === clientId && t.year === year && t.month === month)));
       } else {
-        await upsertMonthlyTask({ client_id: clientId, year, month, task_type: value });
+        const updated = await upsertMonthlyTask({ client_id: clientId, year, month, task_type: value });
+        setTasks(prev => {
+          const exists = prev.find(t => t.client_id === clientId && t.year === year && t.month === month);
+          if (exists) {
+            return prev.map(t => (t.client_id === clientId && t.year === year && t.month === month) ? updated : t);
+          }
+          return [...prev, updated];
+        });
       }
-      await loadData();
     } catch (error) {
       console.error('タスクの更新に失敗しました', error);
+      await loadData();
     }
   };
 
