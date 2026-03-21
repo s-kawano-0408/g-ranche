@@ -12,7 +12,7 @@ import { fetcher } from '@/lib/fetcher';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: clients = [], isLoading: clientsLoading } = useSWR<Client[]>('/api/clients/', fetcher);
+  const { data: clients = [], isLoading: clientsLoading } = useSWR<Client[]>('/api/clients', fetcher);
   const { data: todaySchedules = [], isLoading: schedulesLoading } = useSWR<Schedule[]>('/api/schedules/today', fetcher);
 
   const loading = clientsLoading || schedulesLoading;

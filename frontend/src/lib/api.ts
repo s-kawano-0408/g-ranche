@@ -34,7 +34,7 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
 
 // Clients
 export async function getClients(): Promise<Client[]> {
-  return fetchAPI<Client[]>("/api/clients/");
+  return fetchAPI<Client[]>("/api/clients");
 }
 
 export async function getClient(id: number): Promise<Client> {
@@ -42,7 +42,7 @@ export async function getClient(id: number): Promise<Client> {
 }
 
 export async function createClient(data: Record<string, unknown>): Promise<Client> {
-  return fetchAPI<Client>("/api/clients/", {
+  return fetchAPI<Client>("/api/clients", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -70,13 +70,13 @@ export async function getSupportPlans(
   clientId?: number,
 ): Promise<SupportPlan[]> {
   const query = clientId ? `?client_id=${clientId}` : "";
-  return fetchAPI<SupportPlan[]>(`/api/support-plans/${query}`);
+  return fetchAPI<SupportPlan[]>(`/api/support-plans${query}`);
 }
 
 export async function createSupportPlan(
   data: Omit<SupportPlan, "id">,
 ): Promise<SupportPlan> {
-  return fetchAPI<SupportPlan>("/api/support-plans/", {
+  return fetchAPI<SupportPlan>("/api/support-plans", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -85,13 +85,13 @@ export async function createSupportPlan(
 // Case Records
 export async function getCaseRecords(clientId?: number): Promise<CaseRecord[]> {
   const query = clientId ? `?client_id=${clientId}` : "";
-  return fetchAPI<CaseRecord[]>(`/api/records/${query}`);
+  return fetchAPI<CaseRecord[]>(`/api/records${query}`);
 }
 
 export async function createCaseRecord(
   data: Omit<CaseRecord, "id">,
 ): Promise<CaseRecord> {
-  return fetchAPI<CaseRecord>("/api/records/", {
+  return fetchAPI<CaseRecord>("/api/records", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -121,7 +121,7 @@ export async function getSchedules(params?: {
         ),
       ).toString()
     : "";
-  return fetchAPI<Schedule[]>(`/api/schedules/${query}`);
+  return fetchAPI<Schedule[]>(`/api/schedules${query}`);
 }
 
 export async function getTodaySchedules(): Promise<Schedule[]> {
@@ -131,7 +131,7 @@ export async function getTodaySchedules(): Promise<Schedule[]> {
 export async function createSchedule(
   data: Omit<Schedule, "id">,
 ): Promise<Schedule> {
-  return fetchAPI<Schedule>("/api/schedules/", {
+  return fetchAPI<Schedule>("/api/schedules", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -157,7 +157,7 @@ export async function deleteSchedule(id: number): Promise<void> {
 // Monthly Tasks
 export async function getMonthlyTasks(year?: number): Promise<MonthlyTask[]> {
   const query = year ? `?year=${year}` : "";
-  return fetchAPI<MonthlyTask[]>(`/api/monthly-tasks/${query}`);
+  return fetchAPI<MonthlyTask[]>(`/api/monthly-tasks${query}`);
 }
 
 export async function upsertMonthlyTask(data: {
@@ -166,7 +166,7 @@ export async function upsertMonthlyTask(data: {
   month: number;
   task_type: string;
 }): Promise<MonthlyTask> {
-  return fetchAPI<MonthlyTask>("/api/monthly-tasks/", {
+  return fetchAPI<MonthlyTask>("/api/monthly-tasks", {
     method: "PUT",
     body: JSON.stringify(data),
   });
@@ -178,7 +178,7 @@ export async function deleteMonthlyTask(
   month: number,
 ): Promise<void> {
   await fetch(
-    `${BASE_URL}/api/monthly-tasks/?client_id=${clientId}&year=${year}&month=${month}`,
+    `${BASE_URL}/api/monthly-tasks?client_id=${clientId}&year=${year}&month=${month}`,
     {
       method: "DELETE",
       credentials: "include",

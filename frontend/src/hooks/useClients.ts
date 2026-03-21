@@ -8,7 +8,7 @@ import { fetcher } from '@/lib/fetcher';
 
 export function useClients() {
   const { data: clients = [], error: swrError, isLoading: loading, mutate } = useSWR<Client[]>(
-    '/api/clients/',
+    '/api/clients',
     fetcher,
   );
 
