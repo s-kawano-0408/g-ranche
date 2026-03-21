@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { useRouter } from 'next/navigation';
 import { usePseudonym } from '@/contexts/PseudonymContext';
 import { deriveKey, generateSalt } from '@/lib/crypto';
-import { loadEncrypted, saveEncrypted } from '@/lib/indexeddb';
+import { loadEncrypted, saveEncrypted, saveCryptoKey, loadCryptoKey } from '@/lib/indexeddb';
 import { migrateFromLocalStorage } from '@/lib/migrate-storage';
 import { useAutoLock } from '@/hooks/useAutoLock';
 import { logout as apiLogout } from '@/lib/api';
@@ -54,6 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const userData = await res.json();
           setUser(userData);
+
+          // リロード時: IndexedDBからCryptoKeyを復元してマッピングを読み込む
+          const savedKey = await loadCryptoKey();
+          if (savedKey) {
+            keyRef.current = savedKey;
+            await setEncryptionKey(savedKey);
+          }
         }
       } catch {
         // ネットワークエラーなど
@@ -63,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     checkAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // パスワードから暗号鍵を導出し、PseudonymContextにデータを読み込む
@@ -87,6 +95,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const key = await deriveKey(password, salt);
     keyRef.current = key;
 
+    // CryptoKeyをIndexedDBに保存（リロード時に復元するため）
+    await saveCryptoKey(key);
+
     // localStorageに旧データがあれば暗号化してIndexedDBに移行
     const migrated = await migrateFromLocalStorage(key);
     if (migrated) {
@@ -105,7 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // ログアウト: Cookie削除 → 鍵破棄 → マッピングクリア → ログイン画面へ
+  // ログアウト: Cookie削除 → メモリ上の鍵破棄 → マッピングクリア → ログイン画面へ
+  // ※ CryptoKeyはIndexedDBに残す（再ログイン時にすぐ名前を復元するため）
   const logout = useCallback(() => {
     apiLogout().catch(() => {}); // サーバーにCookie削除を依頼
     keyRef.current = null;
