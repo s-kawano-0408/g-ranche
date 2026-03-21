@@ -1,46 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import Header from '@/components/layout/Header';
 import StatsCard from '@/components/dashboard/StatsCard';
 import TodaySchedule from '@/components/dashboard/TodaySchedule';
 import { Users, Calendar, Baby, UserCheck, PlusCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getClients, getTodaySchedules } from '@/lib/api';
+import { Client, Schedule } from '@/types';
+import { fetcher } from '@/lib/fetcher';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [stats, setStats] = useState({
-    totalClients: 0,
-    childClients: 0,
-    adultClients: 0,
-    todaySchedules: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  const { data: clients = [], isLoading: clientsLoading } = useSWR<Client[]>('/api/clients/', fetcher);
+  const { data: todaySchedules = [], isLoading: schedulesLoading } = useSWR<Schedule[]>('/api/schedules/today', fetcher);
 
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const [clients, todaySchedules] = await Promise.all([
-          getClients(),
-          getTodaySchedules(),
-        ]);
+  const loading = clientsLoading || schedulesLoading;
 
-        setStats({
-          totalClients: clients.length,
-          childClients: clients.filter(c => c.client_type === '児').length,
-          adultClients: clients.filter(c => c.client_type === '者').length,
-          todaySchedules: todaySchedules.length,
-        });
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadStats();
-  }, []);
+  const stats = {
+    totalClients: clients.length,
+    childClients: clients.filter(c => c.client_type === '児').length,
+    adultClients: clients.filter(c => c.client_type === '者').length,
+    todaySchedules: todaySchedules.length,
+  };
 
   return (
     <div className="flex flex-col flex-1">

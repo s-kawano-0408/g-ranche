@@ -1,49 +1,36 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import useSWR from 'swr';
 import { Client } from '@/types';
-import { getClients, createClient, updateClient, deleteClient } from '@/lib/api';
+import { createClient, updateClient, deleteClient } from '@/lib/api';
+import { fetcher } from '@/lib/fetcher';
 
 export function useClients() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: clients = [], error: swrError, isLoading: loading, mutate } = useSWR<Client[]>(
+    '/api/clients/',
+    fetcher,
+  );
 
-  const fetchClients = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await getClients();
-      setClients(data);
-      setError(null);
-    } catch (e) {
-      setError('利用者データの取得に失敗しました');
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
+  const error = swrError ? '利用者データの取得に失敗しました' : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addClient = useCallback(async (data: any) => {
     const newClient = await createClient(data);
-    setClients(prev => [...prev, newClient]);
+    await mutate([...clients, newClient], false);
     return newClient;
-  }, []);
+  }, [clients, mutate]);
 
   const editClient = useCallback(async (id: number, data: Partial<Client>) => {
     const updated = await updateClient(id, data);
-    setClients(prev => prev.map(c => (c.id === id ? updated : c)));
+    await mutate(clients.map(c => (c.id === id ? updated : c)), false);
     return updated;
-  }, []);
+  }, [clients, mutate]);
 
   const removeClient = useCallback(async (id: number) => {
     await deleteClient(id);
-    setClients(prev => prev.filter(c => c.id !== id));
-  }, []);
+    await mutate(clients.filter(c => c.id !== id), false);
+  }, [clients, mutate]);
 
-  return { clients, loading, error, refetch: fetchClients, addClient, editClient, removeClient };
+  return { clients, loading, error, refetch: mutate, addClient, editClient, removeClient };
 }

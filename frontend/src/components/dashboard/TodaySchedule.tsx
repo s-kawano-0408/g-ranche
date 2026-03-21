@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import useSWR from 'swr';
 import { Card } from '@/components/ui/card';
 import { Calendar, MapPin } from 'lucide-react';
 import { Schedule } from '@/types';
-import { getTodaySchedules } from '@/lib/api';
+import { fetcher } from '@/lib/fetcher';
 import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const typeConfig: Record<string, { label: string; color: string }> = {
@@ -21,16 +21,8 @@ function formatTime(dt: string) {
 }
 
 export default function TodaySchedule() {
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: schedules = [], isLoading: loading } = useSWR<Schedule[]>('/api/schedules/today', fetcher);
   const { resolve } = usePseudonym();
-
-  useEffect(() => {
-    getTodaySchedules()
-      .then(setSchedules)
-      .catch(() => setSchedules([]))
-      .finally(() => setLoading(false));
-  }, []);
 
   return (
     <Card className="p-6">
