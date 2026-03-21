@@ -62,7 +62,7 @@ export default function RecordsPage() {
         </Button>
       </Header>
 
-      <div className="flex-1 p-8 space-y-6">
+      <div className="flex-1 p-4 sm:p-8 space-y-6">
         {/* Filters */}
         <div className="flex flex-wrap gap-3">
           <ClientCombobox
@@ -72,10 +72,10 @@ export default function RecordsPage() {
             allowEmpty
             emptyLabel="全利用者"
             placeholder="利用者で絞込..."
-            className="w-52"
+            className="w-full sm:w-52"
           />
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v || 'all')}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-full sm:w-36">
               <SelectValue placeholder="種別で絞込" />
             </SelectTrigger>
             <SelectContent>

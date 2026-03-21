@@ -37,14 +37,14 @@ export default function StatsCard({ title, value, icon: Icon, color, description
   const colors = colorMap[color];
 
   return (
-    <Card className="p-6">
-      <div className="flex items-start gap-4">
-        <div className={cn('p-3 rounded-xl', colors.bg)}>
-          <Icon size={24} className={colors.icon} />
+    <Card className="p-4 sm:p-6">
+      <div className="flex items-start gap-3 sm:gap-4">
+        <div className={cn('p-2 sm:p-3 rounded-xl', colors.bg)}>
+          <Icon size={20} className={cn(colors.icon, 'sm:w-6 sm:h-6')} />
         </div>
-        <div className="flex-1">
-          <p className="text-sm text-gray-500 font-medium">{title}</p>
-          <p className={cn('text-3xl font-bold mt-1', colors.value)}>{value}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm text-gray-500 font-medium truncate">{title}</p>
+          <p className={cn('text-2xl sm:text-3xl font-bold mt-1', colors.value)}>{value}</p>
           {description && (
             <p className="text-xs text-gray-400 mt-1">{description}</p>
           )}

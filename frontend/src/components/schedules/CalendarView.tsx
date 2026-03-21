@@ -5,7 +5,6 @@ import { Schedule } from '@/types';
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const typeColors: Record<string, string> = {
   面談: 'bg-blue-500',
@@ -34,7 +33,6 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogSchedules, setDialogSchedules] = useState<Schedule[]>([]);
-  const { resolve } = usePseudonym();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -61,8 +59,6 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
 
   const today = new Date();
 
-  // dialogSchedules はダイアログ表示用（閉じるアニメーション中にちらつかないよう別管理）
-
   const toLocalDateStr = (date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -86,8 +82,7 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
     if (!s.client_id) return null;
     const client = s.client;
     if (client) {
-      const personal = resolve(client.pseudonym_hash);
-      return personal ? `${personal.family_name} ${personal.given_name}` : '仮名利用者';
+      return `${client.family_name} ${client.given_name}`;
     }
     return null;
   };
@@ -146,7 +141,7 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
       <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
         {days.map((day, i) => {
           if (!day) {
-            return <div key={`empty-${i}`} className="bg-gray-50 min-h-[80px]" />;
+            return <div key={`empty-${i}`} className="bg-gray-50 min-h-[60px] sm:min-h-[80px]" />;
           }
           const daySchedules = getSchedulesForDate(day);
           const isToday = day.toDateString() === today.toDateString();
@@ -155,7 +150,7 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
           return (
             <div
               key={day.toISOString()}
-              className="bg-white min-h-[80px] p-1 cursor-pointer hover:bg-gray-50 transition-colors"
+              className="bg-white min-h-[60px] sm:min-h-[80px] p-1 cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => handleDateClick(day)}
             >
               <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${
@@ -166,17 +161,27 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
                 {day.getDate()}
               </div>
               <div className="space-y-0.5">
-                {daySchedules.slice(0, 2).map(s => (
-                  <div
-                    key={s.id}
-                    className={`text-xs px-1 py-0.5 rounded truncate border ${typeBgColors[s.schedule_type] || typeBgColors['その他']}`}
-                  >
-                    {s.title}
+                {/* モバイル: 件数バッジのみ、デスクトップ: スケジュール名表示 */}
+                {daySchedules.length > 0 && (
+                  <div className="sm:hidden text-xs text-center">
+                    <span className={`inline-block w-5 h-5 leading-5 rounded-full text-white font-medium ${typeColors[daySchedules[0].schedule_type] || 'bg-gray-400'}`}>
+                      {daySchedules.length}
+                    </span>
                   </div>
-                ))}
-                {daySchedules.length > 2 && (
-                  <div className="text-xs text-gray-400 px-1">+{daySchedules.length - 2}件</div>
                 )}
+                <div className="hidden sm:block space-y-0.5">
+                  {daySchedules.slice(0, 2).map(s => (
+                    <div
+                      key={s.id}
+                      className={`text-xs px-1 py-0.5 rounded truncate border ${typeBgColors[s.schedule_type] || typeBgColors['その他']}`}
+                    >
+                      {s.title}
+                    </div>
+                  ))}
+                  {daySchedules.length > 2 && (
+                    <div className="text-xs text-gray-400 px-1">+{daySchedules.length - 2}件</div>
+                  )}
+                </div>
               </div>
             </div>
           );

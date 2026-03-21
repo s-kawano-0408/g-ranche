@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getClients, getMonthlyTasks, upsertMonthlyTask, deleteMonthlyTask } from '@/lib/api';
 import { Client, MonthlyTask } from '@/types';
-import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const TASK_TYPES = ['モニタ', '更新', '新規', '更+モニ', '新+モニ', 'その他', '最終モニタ'] as const;
 
@@ -18,19 +17,9 @@ const TASK_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function MonthlyTasksPage() {
-  const { resolve } = usePseudonym();
   const [clients, setClients] = useState<Client[]>([]);
   const [tasks, setTasks] = useState<MonthlyTask[]>([]);
-  const [showHashIds, setShowHashIds] = useState<Set<number>>(new Set());
 
-  const toggleHash = (clientId: number) => {
-    setShowHashIds(prev => {
-      const next = new Set(prev);
-      if (next.has(clientId)) next.delete(clientId);
-      else next.add(clientId);
-      return next;
-    });
-  };
   const [year, setYear] = useState(new Date().getFullYear());
   const [clientTypeFilter, setClientTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('利用中');
@@ -80,11 +69,8 @@ export default function MonthlyTasksPage() {
       if (statusFilter !== 'すべて' && c.status !== statusMap[statusFilter]) return false;
       if (clientTypeFilter !== 'all' && c.client_type !== clientTypeFilter) return false;
 
-      const p = resolve(c.pseudonym_hash);
-      if (!p) return search === '';
-
-      const fullName = `${p.family_name}${p.given_name}`;
-      const fullKana = `${p.family_name_kana}${p.given_name_kana}`;
+      const fullName = `${c.family_name}${c.given_name}`;
+      const fullKana = `${c.family_name_kana}${c.given_name_kana}`;
 
       if (search && !fullName.includes(search) && !fullKana.includes(search)) return false;
 
@@ -96,10 +82,8 @@ export default function MonthlyTasksPage() {
       return true;
     })
     .sort((a, b) => {
-      const pa = resolve(a.pseudonym_hash);
-      const pb = resolve(b.pseudonym_hash);
-      const kanaA = pa ? `${pa.family_name_kana}${pa.given_name_kana}` : '\uffff';
-      const kanaB = pb ? `${pb.family_name_kana}${pb.given_name_kana}` : '\uffff';
+      const kanaA = `${a.family_name_kana}${a.given_name_kana}`;
+      const kanaB = `${b.family_name_kana}${b.given_name_kana}`;
       return kanaA.localeCompare(kanaB, 'ja');
     });
 
@@ -143,9 +127,9 @@ export default function MonthlyTasksPage() {
   }
 
   return (
-    <div className="p-6 overflow-hidden">
-      <div className="flex items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">月間業務管理</h1>
+    <div className="p-4 sm:p-6 overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6 pl-10 lg:pl-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-800">月間業務管理</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setYear((y) => y - 1)}
@@ -181,7 +165,7 @@ export default function MonthlyTasksPage() {
       </div>
 
       {/* ステータス + 児/者フィルター + ア行タブ */}
-      <div className="flex flex-wrap items-center gap-4 mb-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -192,14 +176,14 @@ export default function MonthlyTasksPage() {
           <option value="すべて">すべて</option>
         </select>
 
-        <div className="h-6 border-l border-slate-300" />
+        <div className="hidden sm:block h-6 border-l border-slate-300" />
 
         <div className="flex gap-2">
           {['all', '児', '者'].map((type) => (
             <button
               key={type}
               onClick={() => setClientTypeFilter(type)}
-              className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+              className={`px-3 sm:px-4 py-1.5 text-sm rounded-lg border transition-colors ${
                 clientTypeFilter === type
                   ? 'bg-teal-600 text-white border-teal-600'
                   : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
@@ -210,14 +194,14 @@ export default function MonthlyTasksPage() {
           ))}
         </div>
 
-        <div className="h-6 border-l border-slate-300" />
+        <div className="hidden sm:block h-6 border-l border-slate-300" />
 
         <div className="flex gap-1 flex-wrap">
           {['all', ...KANA_GROUPS.map((g) => g.label)].map((label) => (
             <button
               key={label}
               onClick={() => setKanaFilter(label)}
-              className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
+              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-lg border transition-colors ${
                 kanaFilter === label
                   ? 'bg-teal-600 text-white border-teal-600'
                   : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
@@ -230,7 +214,7 @@ export default function MonthlyTasksPage() {
       </div>
 
       {/* 凡例 */}
-      <div className="flex gap-3 mb-4 flex-wrap">
+      <div className="flex gap-2 sm:gap-3 mb-4 flex-wrap">
         {TASK_TYPES.map((type) => (
           <span
             key={type}
@@ -280,26 +264,12 @@ export default function MonthlyTasksPage() {
                 className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
               >
                 <td className="sticky left-0 z-10 px-3 py-1.5 text-sm text-slate-600 border-r border-slate-200 bg-inherit whitespace-nowrap">
-                  {(() => {
-                    const p = resolve(client.pseudonym_hash);
-                    return p ? `${p.family_name_kana} ${p.given_name_kana}` : '-';
-                  })()}
+                  {`${client.family_name_kana} ${client.given_name_kana}`}
                 </td>
                 <td
                   className="sticky left-[120px] z-10 px-3 py-1.5 text-sm font-medium text-slate-800 border-r border-slate-200 bg-inherit whitespace-nowrap shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]"
                 >
-                  {(() => {
-                    const p = resolve(client.pseudonym_hash);
-                    if (p) return `${p.family_name} ${p.given_name}`;
-                    return (
-                      <span
-                        className="cursor-pointer hover:text-teal-600"
-                        onClick={() => toggleHash(client.id)}
-                      >
-                        {showHashIds.has(client.id) ? client.pseudonym_hash : '仮名利用者'}
-                      </span>
-                    );
-                  })()}
+                  {`${client.family_name} ${client.given_name}`}
                 </td>
                 {months.map((m) => {
                   const task = getTask(client.id, m);

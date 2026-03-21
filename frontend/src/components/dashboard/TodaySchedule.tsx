@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Calendar, MapPin } from 'lucide-react';
 import { Schedule } from '@/types';
 import { fetcher } from '@/lib/fetcher';
-import { usePseudonym } from '@/contexts/PseudonymContext';
 
 const typeConfig: Record<string, { label: string; color: string }> = {
   面談: { label: '面談', color: 'bg-blue-100 text-blue-700' },
@@ -22,10 +21,9 @@ function formatTime(dt: string) {
 
 export default function TodaySchedule() {
   const { data: schedules = [], isLoading: loading } = useSWR<Schedule[]>('/api/schedules/today', fetcher);
-  const { resolve } = usePseudonym();
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <div className="flex items-center gap-2 mb-4">
         <Calendar size={18} className="text-teal-600" />
         <h3 className="font-semibold text-gray-900">本日のスケジュール</h3>
@@ -67,7 +65,7 @@ export default function TodaySchedule() {
                     </div>
                   )}
                   {s.client && (
-                    <p className="text-xs text-gray-500 mt-0.5">{s.client.pseudonym_hash ? (resolve(s.client.pseudonym_hash)?.family_name ?? '仮名利用者') : '仮名利用者'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{s.client.family_name} {s.client.given_name}</p>
                   )}
                 </div>
               </div>

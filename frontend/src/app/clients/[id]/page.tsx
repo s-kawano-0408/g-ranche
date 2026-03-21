@@ -13,7 +13,6 @@ import { ArrowLeft, Plus, Sparkles, User, Calendar, Pencil } from 'lucide-react'
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
 import { getClient, getSupportPlans, getCaseRecords, getSchedules, createCaseRecord, updateCaseRecord, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
-import { usePseudonym } from '@/contexts/PseudonymContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -32,7 +31,7 @@ const scheduleTypeColors: Record<string, string> = {
 function InfoRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex py-3 border-b border-gray-100 last:border-0">
-      <dt className="w-40 text-sm text-gray-500 flex-shrink-0">{label}</dt>
+      <dt className="w-28 sm:w-40 text-sm text-gray-500 flex-shrink-0">{label}</dt>
       <dd className="text-sm text-gray-900 font-medium">{value || '-'}</dd>
     </div>
   );
@@ -42,7 +41,6 @@ export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = Number(params.id);
-  const { resolve } = usePseudonym();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -56,7 +54,6 @@ export default function ClientDetailPage() {
   const [showEditForm, setShowEditForm] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState('');
-  const [showHash, setShowHash] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -107,7 +104,7 @@ export default function ClientDetailPage() {
     return (
       <div className="flex flex-col flex-1">
         <div className="h-20 bg-white border-b animate-pulse" />
-        <div className="p-8 space-y-4">
+        <div className="p-4 sm:p-8 space-y-4">
           {[1, 2, 3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       </div>
@@ -123,17 +120,15 @@ export default function ClientDetailPage() {
     );
   }
 
-  const personal = resolve(client.pseudonym_hash);
-  const fullName = personal ? `${personal.family_name} ${personal.given_name}` : '仮名利用者';
-  const fullNameKana = personal ? `${personal.family_name_kana} ${personal.given_name_kana}` : '';
+  const fullName = `${client.family_name} ${client.given_name}`;
+  const fullNameKana = `${client.family_name_kana} ${client.given_name_kana}`;
   const status = statusConfig[client.status] || { label: client.status, color: 'bg-gray-100 text-gray-600' };
 
   return (
     <div className="flex flex-col flex-1">
       <Header
-        title={!personal && showHash ? client.pseudonym_hash : fullName}
+        title={fullName}
         description={fullNameKana}
-        onTitleClick={!personal ? () => setShowHash(!showHash) : undefined}
       >
         <span className={`text-sm px-2 py-1 rounded font-medium ${client.client_type === '児' ? 'bg-pink-100 text-pink-700' : 'bg-sky-100 text-sky-700'}`}>
           {client.client_type}
@@ -147,9 +142,9 @@ export default function ClientDetailPage() {
         </Button>
       </Header>
 
-      <div className="flex-1 p-8">
+      <div className="flex-1 p-4 sm:p-8">
         <Tabs defaultValue="profile">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 w-full sm:w-auto overflow-x-auto">
             <TabsTrigger value="profile">プロフィール</TabsTrigger>
             <TabsTrigger value="plans">支援計画 ({plans.length})</TabsTrigger>
             <TabsTrigger value="records">支援記録 ({records.length})</TabsTrigger>
@@ -158,20 +153,15 @@ export default function ClientDetailPage() {
 
           {/* Profile Tab */}
           <TabsContent value="profile">
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
+            <Card className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4 gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
                     <User size={24} className="text-teal-600" />
                   </div>
                   <div>
-                  <h3
-                    className={`font-semibold text-gray-900 ${!personal ? 'cursor-pointer hover:text-teal-600' : ''}`}
-                    onClick={() => { if (!personal) setShowHash(!showHash); }}
-                  >
-                    {!personal && showHash ? client.pseudonym_hash : fullName}
-                  </h3>
-                  <p className="text-sm text-gray-500">{fullNameKana}</p>
+                    <h3 className="font-semibold text-gray-900">{fullName}</h3>
+                    <p className="text-sm text-gray-500">{fullNameKana}</p>
                   </div>
                 </div>
                 {isAdmin && (
@@ -187,17 +177,11 @@ export default function ClientDetailPage() {
                 )}
               </div>
               <dl>
-                {personal ? (
-                  <>
-                    <InfoRow label="生年月日" value={`${new Date(personal.birth_date).toLocaleDateString('ja-JP')} (${calcAge(personal.birth_date)}歳)`} />
-                    {client.client_type === '児' && calcGrade(personal.birth_date) && (
-                      <InfoRow label="学年" value={calcGrade(personal.birth_date) || undefined} />
-                    )}
-                    <InfoRow label="受給者証番号" value={personal.certificate_number} />
-                  </>
-                ) : (
-                  <InfoRow label="仮名化" value="マッピングが読み込まれていません。設定ページからインポートしてください。" />
+                <InfoRow label="生年月日" value={`${new Date(client.birth_date).toLocaleDateString('ja-JP')} (${calcAge(client.birth_date)}歳)`} />
+                {client.client_type === '児' && calcGrade(client.birth_date) && (
+                  <InfoRow label="学年" value={calcGrade(client.birth_date) || undefined} />
                 )}
+                <InfoRow label="受給者証番号" value={client.certificate_number} />
                 <InfoRow label="性別" value={client.gender} />
                 {client.end_date && (
                   <InfoRow label="終了日" value={new Date(client.end_date).toLocaleDateString('ja-JP')} />
@@ -355,7 +339,7 @@ export default function ClientDetailPage() {
         />
       )}
 
-      {showEditForm && personal && (
+      {showEditForm && (
         <ClientForm
           open={showEditForm}
           onClose={async () => {
@@ -368,16 +352,15 @@ export default function ClientDetailPage() {
               console.error(e);
             }
           }}
-          onSubmit={async () => ({ pseudonym_hash: client.pseudonym_hash })}
+          onSubmit={async () => {}}
           clientId={client.id}
-          oldPseudonymHash={client.pseudonym_hash}
           initialData={{
-            family_name: personal.family_name,
-            given_name: personal.given_name,
-            family_name_kana: personal.family_name_kana,
-            given_name_kana: personal.given_name_kana,
-            birth_date: personal.birth_date,
-            certificate_number: personal.certificate_number,
+            family_name: client.family_name,
+            given_name: client.given_name,
+            family_name_kana: client.family_name_kana,
+            given_name_kana: client.given_name_kana,
+            birth_date: client.birth_date,
+            certificate_number: client.certificate_number,
             gender: client.gender || '',
             client_type: client.client_type,
             status: client.status === 'active' ? '利用中' : '利用終了',

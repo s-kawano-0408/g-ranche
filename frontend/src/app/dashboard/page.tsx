@@ -40,9 +40,9 @@ export default function DashboardPage() {
         </Button>
       </Header>
 
-      <div className="flex-1 p-8 space-y-8">
+      <div className="flex-1 p-4 sm:p-8 space-y-6 sm:space-y-8">
         {/* Stats */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
           <StatsCard
             title="総利用者数"
             value={loading ? '-' : stats.totalClients}
@@ -74,20 +74,20 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="flex flex-wrap gap-3">
-          <Button className="bg-teal-600 hover:bg-teal-700 gap-2" onClick={() => router.push('/clients')}>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <Button className="bg-teal-600 hover:bg-teal-700 gap-2 text-sm" onClick={() => router.push('/clients')}>
             <Users size={16} />
             新規利用者登録
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => router.push('/schedules')}>
+          <Button variant="outline" className="gap-2 text-sm" onClick={() => router.push('/schedules')}>
             <Calendar size={16} />
             スケジュール追加
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => router.push('/records')}>
+          <Button variant="outline" className="gap-2 text-sm" onClick={() => router.push('/records')}>
             <FileText size={16} />
             支援記録を入力
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => router.push('/ai')}>
+          <Button variant="outline" className="gap-2 text-sm" onClick={() => router.push('/ai')}>
             AIに相談する
           </Button>
         </div>

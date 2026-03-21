@@ -4,7 +4,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { PseudonymProvider } from '@/contexts/PseudonymContext';
 
 // 認証チェック付きのレイアウト
 function LayoutContent({ children }: { children: React.ReactNode }) {
@@ -23,7 +22,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   // ログインページ: サイドバーなし
   if (isLoginPage) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen px-4">
         {children}
       </div>
     );
@@ -47,7 +46,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-1 ml-64 flex flex-col min-h-screen min-w-0">
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
         {children}
       </div>
     </div>
@@ -57,10 +56,8 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 // AuthProviderでラップ
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <PseudonymProvider>
-      <AuthProvider>
-        <LayoutContent>{children}</LayoutContent>
-      </AuthProvider>
-    </PseudonymProvider>
+    <AuthProvider>
+      <LayoutContent>{children}</LayoutContent>
+    </AuthProvider>
   );
 }

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut, Settings, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
@@ -18,14 +19,39 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
 
-  return (
-    <aside className="w-64 min-h-screen bg-slate-900 flex flex-col fixed left-0 top-0 z-40">
-      <div className="p-6 border-b border-slate-700">
-        <h1 className="text-teal-400 font-bold text-lg leading-tight">
-          ぐ・らんちぇ
-        </h1>
-        <p className="text-slate-500 text-xs mt-1">管理システム</p>
+  // ページ遷移時にメニューを閉じる
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // メニューが開いているときにスクロールを防止
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  const sidebarContent = (
+    <>
+      <div className="p-6 border-b border-slate-700 flex items-center justify-between">
+        <div>
+          <h1 className="text-teal-400 font-bold text-lg leading-tight">
+            ぐ・らんちぇ
+          </h1>
+          <p className="text-slate-500 text-xs mt-1">管理システム</p>
+        </div>
+        {/* モバイル: 閉じるボタン */}
+        <button
+          onClick={() => setOpen(false)}
+          className="lg:hidden text-slate-400 hover:text-white p-1"
+        >
+          <X size={20} />
+        </button>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {
@@ -76,6 +102,39 @@ export default function Sidebar() {
           ログアウト
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* モバイル: ハンバーガーボタン */}
+      <button
+        onClick={() => setOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 bg-slate-900 text-white p-2 rounded-lg shadow-lg"
+        aria-label="メニューを開く"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* デスクトップ: 固定サイドバー */}
+      <aside className="hidden lg:flex w-64 min-h-screen bg-slate-900 flex-col fixed left-0 top-0 z-40">
+        {sidebarContent}
+      </aside>
+
+      {/* モバイル: オーバーレイ + ドロワー */}
+      {open && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 bg-black/50"
+          onClick={() => setOpen(false)}
+        >
+          <aside
+            className="w-64 min-h-screen bg-slate-900 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

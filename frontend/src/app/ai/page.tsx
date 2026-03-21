@@ -53,7 +53,7 @@ export default function AIPage() {
       {/* Chat Panel */}
       <div className="flex-1 flex flex-col" style={{ minWidth: 0 }}>
         {/* Chat Header */}
-        <div className="bg-white border-b px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div className="bg-white border-b px-4 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 pl-12 lg:pl-6">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center">
               <Bot size={20} className="text-teal-600" />
@@ -75,7 +75,7 @@ export default function AIPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
           {/* System intro */}
           <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 text-sm text-teal-800">
             <div className="flex items-center gap-2 mb-2">
@@ -115,7 +115,7 @@ export default function AIPage() {
         </div>
 
         {/* Input */}
-        <div className="bg-white border-t px-6 py-4 flex-shrink-0">
+        <div className="bg-white border-t px-4 sm:px-6 py-4 flex-shrink-0">
           <div className="flex gap-3 items-end">
             <Textarea
               value={input}
@@ -140,8 +140,8 @@ export default function AIPage() {
         </div>
       </div>
 
-      {/* Document Panel */}
-      <div className="w-80 border-l bg-gray-50 flex flex-col flex-shrink-0 overflow-hidden">
+      {/* Document Panel — デスクトップのみ表示 */}
+      <div className="hidden lg:flex w-80 border-l bg-gray-50 flex-col flex-shrink-0 overflow-hidden">
         <DocumentPanel clients={clients} />
       </div>
     </div>

@@ -58,8 +58,8 @@ export default function SchedulesPage() {
         </Button>
       </Header>
 
-      <div className="flex-1 p-8">
-        <Card className="p-6">
+      <div className="flex-1 p-4 sm:p-8">
+        <Card className="p-3 sm:p-6">
           {loading ? (
             <div className="space-y-4">
               <div className="h-8 bg-gray-100 rounded animate-pulse w-48 mx-auto" />
