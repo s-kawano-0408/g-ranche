@@ -7,22 +7,21 @@ import StatsCard from '@/components/dashboard/StatsCard';
 import TodaySchedule from '@/components/dashboard/TodaySchedule';
 import { Users, Calendar, Baby, UserCheck, PlusCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Client, Schedule } from '@/types';
+import { Schedule } from '@/types';
 import { fetcher } from '@/lib/fetcher';
+
+type ClientStats = {
+  total: number;
+  child: number;
+  adult: number;
+};
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: clients = [], isLoading: clientsLoading } = useSWR<Client[]>('/api/clients', fetcher);
+  const { data: clientStats, isLoading: statsLoading } = useSWR<ClientStats>('/api/clients/stats', fetcher);
   const { data: todaySchedules = [], isLoading: schedulesLoading } = useSWR<Schedule[]>('/api/schedules/today', fetcher);
 
-  const loading = clientsLoading || schedulesLoading;
-
-  const stats = {
-    totalClients: clients.length,
-    childClients: clients.filter(c => c.client_type === '児').length,
-    adultClients: clients.filter(c => c.client_type === '者').length,
-    todaySchedules: todaySchedules.length,
-  };
+  const loading = statsLoading || schedulesLoading;
 
   return (
     <div className="flex flex-col flex-1">
@@ -45,28 +44,28 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
           <StatsCard
             title="総利用者数"
-            value={loading ? '-' : stats.totalClients}
+            value={loading ? '-' : clientStats?.total ?? 0}
             icon={Users}
             color="teal"
             description="登録中の利用者"
           />
           <StatsCard
             title="児の人数"
-            value={loading ? '-' : stats.childClients}
+            value={loading ? '-' : clientStats?.child ?? 0}
             icon={Baby}
             color="blue"
             description="障害児の利用者"
           />
           <StatsCard
             title="者の人数"
-            value={loading ? '-' : stats.adultClients}
+            value={loading ? '-' : clientStats?.adult ?? 0}
             icon={UserCheck}
             color="purple"
             description="障害者の利用者"
           />
           <StatsCard
             title="本日の予定"
-            value={loading ? '-' : stats.todaySchedules}
+            value={loading ? '-' : todaySchedules.length}
             icon={Calendar}
             color="orange"
             description="本日のスケジュール件数"

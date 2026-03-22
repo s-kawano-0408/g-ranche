@@ -1,14 +1,23 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 
 from database import get_db
 from models.client import Client
-from schemas.client import ClientCreate, ClientUpdate, ClientResponse
+from schemas.client import ClientCreate, ClientUpdate, ClientResponse, ClientStats
 from auth import get_current_user, require_admin
 
 router = APIRouter()
+
+
+@router.get("/stats", response_model=ClientStats)
+def get_client_stats(db: Session = Depends(get_db), _user=Depends(get_current_user)):
+    """利用者の統計情報を取得します（総数・児・者の人数）。"""
+    total = db.query(func.count(Client.id)).scalar()
+    child = db.query(func.count(Client.id)).filter(Client.client_type == '児').scalar()
+    adult = db.query(func.count(Client.id)).filter(Client.client_type == '者').scalar()
+    return {"total": total, "child": child, "adult": adult}
 
 
 @router.get("", response_model=List[ClientResponse])

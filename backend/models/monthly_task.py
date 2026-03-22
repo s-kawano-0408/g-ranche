@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -17,6 +17,7 @@ class MonthlyTask(Base):
 
     __table_args__ = (
         UniqueConstraint("client_id", "year", "month", name="uq_client_year_month"),
+        Index("ix_monthly_task_composite", "client_id", "year", "month"),
     )
 
     # Relationships

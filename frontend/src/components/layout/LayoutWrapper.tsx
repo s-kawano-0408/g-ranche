@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { SWRConfig } from 'swr';
 import Sidebar from '@/components/layout/Sidebar';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
@@ -56,8 +57,15 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 // AuthProviderでラップ
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <LayoutContent>{children}</LayoutContent>
-    </AuthProvider>
+    <SWRConfig value={{
+      revalidateOnFocus: false,      // タブ切替で再フェッチしない
+      revalidateOnReconnect: false,  // ネット復帰で再フェッチしない
+      dedupingInterval: 30000,       // 30秒以内の同じリクエストは重複排除
+      errorRetryCount: 2,            // エラー時リトライは2回まで
+    }}>
+      <AuthProvider>
+        <LayoutContent>{children}</LayoutContent>
+      </AuthProvider>
+    </SWRConfig>
   );
 }

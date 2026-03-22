@@ -51,3 +51,9 @@ class ClientResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class ClientStats(BaseModel):
+    total: int
+    child: int
+    adult: int
