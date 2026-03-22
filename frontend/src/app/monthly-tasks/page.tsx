@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import useSWR from 'swr';
 import { upsertMonthlyTask, deleteMonthlyTask } from '@/lib/api';
 import { useClients } from '@/hooks/useClients';
 import { fetcher } from '@/lib/fetcher';
-import { MonthlyTask } from '@/types';
+import { Client, MonthlyTask } from '@/types';
 
 const TASK_TYPES = ['モニタ', '更新', '新規', '更+モニ', '新+モニ', 'その他', '最終モニタ'] as const;
 
@@ -18,6 +18,61 @@ const TASK_COLORS: Record<string, { bg: string; text: string }> = {
   'その他': { bg: 'bg-amber-100', text: 'text-amber-800' },
   '最終モニタ': { bg: 'bg-emerald-100', text: 'text-emerald-800' },
 };
+
+// メモ化されたセルコンポーネント — タスクが変わらない限り再描画しない
+const TaskCell = memo(function TaskCell({ clientId, month, taskType, onTaskChange }: {
+  clientId: number;
+  month: number;
+  taskType: string;
+  onTaskChange: (clientId: number, month: number, value: string) => void;
+}) {
+  const colors = taskType ? TASK_COLORS[taskType] : null;
+  return (
+    <td className="px-1 py-1 border-r border-slate-200 text-center">
+      <select
+        value={taskType}
+        onChange={(e) => onTaskChange(clientId, month, e.target.value)}
+        className={`w-full px-1 py-1 text-xs rounded border-0 cursor-pointer appearance-none text-center focus:ring-2 focus:ring-teal-400 ${
+          colors ? `${colors.bg} ${colors.text} font-medium` : 'bg-transparent text-slate-400'
+        }`}
+      >
+        <option value="">-</option>
+        {TASK_TYPES.map((type) => (
+          <option key={type} value={type}>{type}</option>
+        ))}
+      </select>
+    </td>
+  );
+});
+
+// メモ化された行コンポーネント — クライアントのタスクが変わらない限り再描画しない
+const ClientRow = memo(function ClientRow({ client, idx, months, taskMap, onTaskChange }: {
+  client: Client;
+  idx: number;
+  months: number[];
+  taskMap: Map<string, string>;
+  onTaskChange: (clientId: number, month: number, value: string) => void;
+}) {
+  return (
+    <tr className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+      <td className="sticky left-0 z-10 px-3 py-1.5 text-sm text-slate-600 border-r border-slate-200 bg-inherit whitespace-nowrap">
+        {`${client.family_name_kana} ${client.given_name_kana}`}
+      </td>
+      <td className="sticky left-[120px] z-10 px-3 py-1.5 text-sm font-medium text-slate-800 border-r border-slate-200 bg-inherit whitespace-nowrap shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+        {`${client.family_name} ${client.given_name}`}
+      </td>
+      {months.map((m) => (
+        <TaskCell
+          key={m}
+          clientId={client.id}
+          month={m}
+          taskType={taskMap.get(`${client.id}-${m}`) || ''}
+          onTaskChange={onTaskChange}
+        />
+      ))}
+    </tr>
+  );
+});
 
 export default function MonthlyTasksPage() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -50,40 +105,50 @@ export default function MonthlyTasksPage() {
 
   const statusMap: Record<string, string> = { '利用中': 'active', '利用終了': 'inactive' };
 
-  const filteredClients = clients
-    .filter((c) => {
-      if (statusFilter !== 'すべて' && c.status !== statusMap[statusFilter]) return false;
-      if (clientTypeFilter !== 'all' && c.client_type !== clientTypeFilter) return false;
+  const filteredClients = useMemo(() =>
+    clients
+      .filter((c) => {
+        if (statusFilter !== 'すべて' && c.status !== statusMap[statusFilter]) return false;
+        if (clientTypeFilter !== 'all' && c.client_type !== clientTypeFilter) return false;
 
-      const fullName = `${c.family_name}${c.given_name}`;
-      const fullKana = `${c.family_name_kana}${c.given_name_kana}`;
+        const fullName = `${c.family_name}${c.given_name}`;
+        const fullKana = `${c.family_name_kana}${c.given_name_kana}`;
 
-      if (search && !fullName.includes(search) && !fullKana.includes(search)) return false;
+        if (search && !fullName.includes(search) && !fullKana.includes(search)) return false;
 
-      if (kanaFilter !== 'all') {
-        const group = KANA_GROUPS.find((g) => g.label === kanaFilter);
-        if (group && !group.chars.includes(fullKana.charAt(0))) return false;
+        if (kanaFilter !== 'all') {
+          const group = KANA_GROUPS.find((g) => g.label === kanaFilter);
+          if (group && !group.chars.includes(fullKana.charAt(0))) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const kanaA = `${a.family_name_kana}${a.given_name_kana}`;
+        const kanaB = `${b.family_name_kana}${b.given_name_kana}`;
+        return kanaA.localeCompare(kanaB, 'ja');
+      }),
+    [clients, statusFilter, clientTypeFilter, search, kanaFilter],
+  );
+
+  const filteredClientIds = useMemo(() => new Set(filteredClients.map((c) => c.id)), [filteredClients]);
+
+  // O(1)ルックアップ用のMap（find()のO(n)を回避）
+  const taskMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tasks) {
+      if (t.year === year) {
+        map.set(`${t.client_id}-${t.month}`, t.task_type);
       }
+    }
+    return map;
+  }, [tasks, year]);
 
-      return true;
-    })
-    .sort((a, b) => {
-      const kanaA = `${a.family_name_kana}${a.given_name_kana}`;
-      const kanaB = `${b.family_name_kana}${b.given_name_kana}`;
-      return kanaA.localeCompare(kanaB, 'ja');
-    });
-
-  const filteredClientIds = new Set(filteredClients.map((c) => c.id));
-
-  const getTask = (clientId: number, month: number): MonthlyTask | undefined => {
-    return tasks.find((t) => t.client_id === clientId && t.year === year && t.month === month);
-  };
-
-  const getMonthCount = (month: number): number => {
+  const getMonthCount = useCallback((month: number): number => {
     return tasks.filter((t) => t.year === year && t.month === month && filteredClientIds.has(t.client_id)).length;
-  };
+  }, [tasks, year, filteredClientIds]);
 
-  const handleTaskChange = async (clientId: number, month: number, value: string) => {
+  const handleTaskChange = useCallback(async (clientId: number, month: number, value: string) => {
     try {
       if (value === '') {
         await deleteMonthlyTask(clientId, year, month);
@@ -101,7 +166,7 @@ export default function MonthlyTasksPage() {
       console.error('タスクの更新に失敗しました', error);
       await mutateTasks();
     }
-  };
+  }, [tasks, year, mutateTasks]);
 
   if (loading) {
     return (
@@ -244,48 +309,14 @@ export default function MonthlyTasksPage() {
           </thead>
           <tbody>
             {filteredClients.map((client, idx) => (
-              <tr
+              <ClientRow
                 key={client.id}
-                className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
-              >
-                <td className="sticky left-0 z-10 px-3 py-1.5 text-sm text-slate-600 border-r border-slate-200 bg-inherit whitespace-nowrap">
-                  {`${client.family_name_kana} ${client.given_name_kana}`}
-                </td>
-                <td
-                  className="sticky left-[120px] z-10 px-3 py-1.5 text-sm font-medium text-slate-800 border-r border-slate-200 bg-inherit whitespace-nowrap shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]"
-                >
-                  {`${client.family_name} ${client.given_name}`}
-                </td>
-                {months.map((m) => {
-                  const task = getTask(client.id, m);
-                  const taskType = task?.task_type || '';
-                  const colors = taskType ? TASK_COLORS[taskType] : null;
-
-                  return (
-                    <td
-                      key={m}
-                      className="px-1 py-1 border-r border-slate-200 text-center"
-                    >
-                      <select
-                        value={taskType}
-                        onChange={(e) => handleTaskChange(client.id, m, e.target.value)}
-                        className={`w-full px-1 py-1 text-xs rounded border-0 cursor-pointer appearance-none text-center focus:ring-2 focus:ring-teal-400 ${
-                          colors
-                            ? `${colors.bg} ${colors.text} font-medium`
-                            : 'bg-transparent text-slate-400'
-                        }`}
-                      >
-                        <option value="">-</option>
-                        {TASK_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  );
-                })}
-              </tr>
+                client={client}
+                idx={idx}
+                months={months}
+                taskMap={taskMap}
+                onTaskChange={handleTaskChange}
+              />
             ))}
           </tbody>
         </table>
