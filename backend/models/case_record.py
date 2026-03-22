@@ -17,6 +17,7 @@ class CaseRecord(Base):
     next_action = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
     client = relationship("Client", back_populates="case_records")

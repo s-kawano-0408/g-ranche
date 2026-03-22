@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Plus, Sparkles, User, Calendar, Pencil } from 'lucide-react';
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
-import { createCaseRecord, updateCaseRecord, generateSupportPlan } from '@/lib/api';
+import { createCaseRecord, updateCaseRecord, deleteCaseRecord, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetcher } from '@/lib/fetcher';
@@ -79,6 +79,11 @@ export default function ClientDetailPage() {
     if (!editingRecord) return;
     const updated = await updateCaseRecord(editingRecord.id, data);
     await mutateRecords(records.map(r => r.id === editingRecord.id ? updated : r), false);
+  };
+
+  const handleDeleteRecord = async (recordId: number) => {
+    await deleteCaseRecord(recordId);
+    await mutateRecords(records.filter(r => r.id !== recordId), false);
   };
 
   const handleGeneratePlan = async () => {
@@ -270,7 +275,7 @@ export default function ClientDetailPage() {
                   新規記録
                 </Button>
               </div>
-              <RecordTimeline records={records} clients={client ? [client] : []} onEdit={setEditingRecord} />
+              <RecordTimeline records={records} clients={client ? [client] : []} onEdit={setEditingRecord} onDelete={handleDeleteRecord} />
             </div>
           </TabsContent>
 

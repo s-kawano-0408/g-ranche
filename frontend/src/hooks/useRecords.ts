@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import useSWR from 'swr';
 import { CaseRecord } from '@/types';
-import { createCaseRecord, updateCaseRecord } from '@/lib/api';
+import { createCaseRecord, updateCaseRecord, deleteCaseRecord } from '@/lib/api';
 import { fetcher } from '@/lib/fetcher';
 
 export function useRecords(clientId?: number) {
@@ -29,5 +29,10 @@ export function useRecords(clientId?: number) {
     return updated;
   }, [records, mutate]);
 
-  return { records, loading, error, refetch: mutate, addRecord, editRecord };
+  const removeRecord = useCallback(async (id: number) => {
+    await deleteCaseRecord(id);
+    await mutate(records.filter(r => r.id !== id), false);
+  }, [records, mutate]);
+
+  return { records, loading, error, refetch: mutate, addRecord, editRecord, removeRecord };
 }

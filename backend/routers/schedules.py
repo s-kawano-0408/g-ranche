@@ -27,6 +27,7 @@ def get_today_schedules(
         and_(
             Schedule.start_datetime >= today_start,
             Schedule.start_datetime <= today_end,
+            Schedule.deleted_at.is_(None),
         )
     )
     if staff_id is not None:
@@ -47,7 +48,7 @@ def list_schedules(
     _user=Depends(get_current_user),
 ):
     """スケジュール一覧を取得します。日付範囲、利用者ID、スタッフIDでフィルタリングできます。"""
-    stmt = select(Schedule)
+    stmt = select(Schedule).where(Schedule.deleted_at.is_(None))
     conditions = []
 
     if start_date:
@@ -95,7 +96,7 @@ def update_schedule(
 ):
     """スケジュールを更新します。"""
     schedule = db.execute(
-        select(Schedule).where(Schedule.id == schedule_id)
+        select(Schedule).where(Schedule.id == schedule_id, Schedule.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not schedule:
         raise HTTPException(status_code=404, detail="スケジュールが見つかりません")
@@ -113,12 +114,12 @@ def update_schedule(
 def delete_schedule(
     schedule_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)
 ):
-    """スケジュールを削除します。"""
+    """スケジュールを論理削除します。"""
     schedule = db.execute(
-        select(Schedule).where(Schedule.id == schedule_id)
+        select(Schedule).where(Schedule.id == schedule_id, Schedule.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not schedule:
         raise HTTPException(status_code=404, detail="スケジュールが見つかりません")
 
-    db.delete(schedule)
+    schedule.deleted_at = datetime.utcnow()
     db.commit()

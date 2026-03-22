@@ -18,6 +18,7 @@ class SupportPlan(Base):
     status = Column(String, default="active")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
     client = relationship("Client", back_populates="support_plans")

@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, func, case
 
@@ -19,7 +20,7 @@ def get_client_stats(db: Session = Depends(get_db), _user=Depends(get_current_us
             func.count(Client.id).label('total'),
             func.count(case((Client.client_type == '児', 1))).label('child'),
             func.count(case((Client.client_type == '者', 1))).label('adult'),
-        )
+        ).where(Client.deleted_at.is_(None))
     ).one()
     return {"total": result.total, "child": result.child, "adult": result.adult}
 
@@ -32,7 +33,7 @@ def list_clients(
     _user=Depends(get_current_user),
 ):
     """利用者一覧を取得します。障害種別、状態でフィルタリングできます。"""
-    stmt = select(Client)
+    stmt = select(Client).where(Client.deleted_at.is_(None))
     conditions = []
 
     if client_type:
@@ -75,7 +76,7 @@ def create_client(client_in: ClientCreate, db: Session = Depends(get_db), _admin
 def get_client(client_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """指定した利用者の詳細情報を取得します。"""
     client = db.execute(
-        select(Client).where(Client.id == client_id)
+        select(Client).where(Client.id == client_id, Client.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="利用者が見つかりません")
@@ -88,7 +89,7 @@ def update_client(
 ):
     """利用者情報を更新します。（管理者のみ）"""
     client = db.execute(
-        select(Client).where(Client.id == client_id)
+        select(Client).where(Client.id == client_id, Client.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="利用者が見つかりません")
@@ -105,13 +106,13 @@ def update_client(
 
 @router.delete("/{client_id}", status_code=204)
 def delete_client(client_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    """利用者を削除します。（管理者のみ）"""
+    """利用者を論理削除します。（管理者のみ）"""
     client = db.execute(
-        select(Client).where(Client.id == client_id)
+        select(Client).where(Client.id == client_id, Client.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="利用者が見つかりません")
 
-    db.delete(client)
+    client.deleted_at = datetime.utcnow()
     db.commit()
     return None

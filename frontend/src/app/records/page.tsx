@@ -14,7 +14,7 @@ import { useRecords } from '@/hooks/useRecords';
 
 export default function RecordsPage() {
   const { clients } = useClients();
-  const { records, loading, addRecord, editRecord } = useRecords();
+  const { records, loading, addRecord, editRecord, removeRecord } = useRecords();
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CaseRecord | null>(null);
   const [clientFilter, setClientFilter] = useState<number | null>(null);
@@ -87,7 +87,7 @@ export default function RecordsPage() {
             ))}
           </div>
         ) : (
-          <RecordTimeline records={filtered} clients={clients} onEdit={handleEdit} />
+          <RecordTimeline records={filtered} clients={clients} onEdit={handleEdit} onDelete={removeRecord} />
         )}
       </div>
 

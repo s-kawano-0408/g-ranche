@@ -107,6 +107,13 @@ export async function updateCaseRecord(
   });
 }
 
+export async function deleteCaseRecord(id: number): Promise<void> {
+  await fetch(`${BASE_URL}/api/records/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+}
+
 // Schedules
 export async function getSchedules(params?: {
   client_id?: number;

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -16,12 +17,11 @@ def list_case_records(
     client_id: Optional[int] = Query(None, description="利用者IDでフィルタリング"),
     staff_id: Optional[int] = Query(None, description="スタッフIDでフィルタリング"),
     record_type: Optional[str] = Query(None, description="記録種別でフィルタリング"),
-    limit: int = Query(50, description="取得件数の上限"),
     db: Session = Depends(get_db),
     _user=Depends(get_current_user),
 ):
     """支援記録一覧を取得します。利用者ID、スタッフID、記録種別でフィルタリングできます。"""
-    stmt = select(CaseRecord)
+    stmt = select(CaseRecord).where(CaseRecord.deleted_at.is_(None))
     conditions = []
 
     if client_id is not None:
@@ -34,7 +34,7 @@ def list_case_records(
     if conditions:
         stmt = stmt.where(and_(*conditions))
 
-    stmt = stmt.order_by(CaseRecord.record_date.desc()).limit(limit)
+    stmt = stmt.order_by(CaseRecord.record_date.desc())
     records = db.execute(stmt).scalars().all()
     return records
 
@@ -55,7 +55,7 @@ def update_case_record(
 ):
     """支援記録を更新します。"""
     record = db.execute(
-        select(CaseRecord).where(CaseRecord.id == record_id)
+        select(CaseRecord).where(CaseRecord.id == record_id, CaseRecord.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not record:
         raise HTTPException(status_code=404, detail="支援記録が見つかりません")
@@ -67,3 +67,19 @@ def update_case_record(
     db.commit()
     db.refresh(record)
     return record
+
+
+@router.delete("/{record_id}", status_code=204)
+def delete_case_record(
+    record_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)
+):
+    """支援記録を論理削除します。"""
+    record = db.execute(
+        select(CaseRecord).where(CaseRecord.id == record_id, CaseRecord.deleted_at.is_(None))
+    ).scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="支援記録が見つかりません")
+
+    record.deleted_at = datetime.utcnow()
+    db.commit()
+    return None

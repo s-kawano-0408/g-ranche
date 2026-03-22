@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -20,7 +21,7 @@ def list_monthly_tasks(
     _user=Depends(get_current_user),
 ):
     """月間業務タスク一覧を取得します。"""
-    stmt = select(MonthlyTask)
+    stmt = select(MonthlyTask).where(MonthlyTask.deleted_at.is_(None))
     conditions = []
 
     if year:
@@ -50,6 +51,7 @@ def upsert_monthly_task(
                 MonthlyTask.client_id == task_in.client_id,
                 MonthlyTask.year == task_in.year,
                 MonthlyTask.month == task_in.month,
+                MonthlyTask.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
@@ -75,13 +77,14 @@ def delete_monthly_task(
     db: Session = Depends(get_db),
     _user=Depends(get_current_user),
 ):
-    """月間業務タスクを削除します（空白に戻す）。"""
+    """月間業務タスクを論理削除します（空白に戻す）。"""
     task = db.execute(
         select(MonthlyTask).where(
             and_(
                 MonthlyTask.client_id == client_id,
                 MonthlyTask.year == year,
                 MonthlyTask.month == month,
+                MonthlyTask.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
@@ -89,6 +92,6 @@ def delete_monthly_task(
     if not task:
         raise HTTPException(status_code=404, detail="タスクが見つかりません")
 
-    db.delete(task)
+    task.deleted_at = datetime.utcnow()
     db.commit()
     return None

@@ -19,6 +19,7 @@ class Schedule(Base):
     status = Column(String, default="scheduled")  # "scheduled"/"completed"/"cancelled"
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
     client = relationship("Client", back_populates="schedules")

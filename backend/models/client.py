@@ -22,6 +22,7 @@ class Client(Base):
     end_date = Column(Date)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
     staff = relationship("Staff", back_populates="clients")

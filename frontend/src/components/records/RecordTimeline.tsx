@@ -1,7 +1,7 @@
 'use client';
 
 import { CaseRecord, Client } from '@/types';
-import { MessageSquare, Home, Phone, BarChart2, Users, Pencil } from 'lucide-react';
+import { MessageSquare, Home, Phone, BarChart2, Users, Pencil, Trash2 } from 'lucide-react';
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string; label: string }> = {
   面談: { icon: <MessageSquare size={14} />, color: 'text-blue-600', bgColor: 'bg-blue-100', label: '面談' },
@@ -15,9 +15,10 @@ interface RecordTimelineProps {
   records: CaseRecord[];
   clients?: Client[];
   onEdit?: (record: CaseRecord) => void;
+  onDelete?: (id: number) => void;
 }
 
-export default function RecordTimeline({ records, clients, onEdit }: RecordTimelineProps) {
+export default function RecordTimeline({ records, clients, onEdit, onDelete }: RecordTimelineProps) {
   if (records.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400">
@@ -61,6 +62,17 @@ export default function RecordTimeline({ records, clients, onEdit }: RecordTimel
                         title="編集"
                       >
                         <Pencil size={14} />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => {
+                          if (confirm('この記録を削除しますか？')) onDelete(record.id);
+                        }}
+                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        title="削除"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     )}
                     <time className="text-xs text-gray-400">

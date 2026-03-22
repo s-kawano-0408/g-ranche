@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -19,7 +20,7 @@ def list_support_plans(
     _user=Depends(get_current_user),
 ):
     """支援計画一覧を取得します。利用者IDでフィルタリングできます。"""
-    stmt = select(SupportPlan)
+    stmt = select(SupportPlan).where(SupportPlan.deleted_at.is_(None))
     if client_id is not None:
         stmt = stmt.where(SupportPlan.client_id == client_id)
     stmt = stmt.order_by(SupportPlan.plan_date.desc())
@@ -32,7 +33,7 @@ def create_support_plan(plan_in: SupportPlanCreate, db: Session = Depends(get_db
     """新しい支援計画を作成します。"""
     # Verify client exists
     client = db.execute(
-        select(Client).where(Client.id == plan_in.client_id)
+        select(Client).where(Client.id == plan_in.client_id, Client.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="利用者が見つかりません")
@@ -48,7 +49,7 @@ def create_support_plan(plan_in: SupportPlanCreate, db: Session = Depends(get_db
 def get_support_plan(plan_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """指定した支援計画の詳細を取得します。"""
     plan = db.execute(
-        select(SupportPlan).where(SupportPlan.id == plan_id)
+        select(SupportPlan).where(SupportPlan.id == plan_id, SupportPlan.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not plan:
         raise HTTPException(status_code=404, detail="支援計画が見つかりません")
@@ -61,7 +62,7 @@ def update_support_plan(
 ):
     """支援計画を更新します。"""
     plan = db.execute(
-        select(SupportPlan).where(SupportPlan.id == plan_id)
+        select(SupportPlan).where(SupportPlan.id == plan_id, SupportPlan.deleted_at.is_(None))
     ).scalar_one_or_none()
     if not plan:
         raise HTTPException(status_code=404, detail="支援計画が見つかりません")

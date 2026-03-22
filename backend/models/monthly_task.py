@@ -14,6 +14,7 @@ class MonthlyTask(Base):
     task_type = Column(String, nullable=False)  # "モニタ"/"最終モニタ"/"更新"/"新+モニ"/"その他"
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("client_id", "year", "month", name="uq_client_year_month"),
