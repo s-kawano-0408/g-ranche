@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import CalendarView from '@/components/schedules/CalendarView';
 import ScheduleForm from '@/components/schedules/ScheduleForm';
@@ -12,7 +12,19 @@ import { Card } from '@/components/ui/card';
 import { Schedule } from '@/types';
 
 export default function SchedulesPage() {
-  const { schedules, loading, addSchedule, editSchedule, removeSchedule } = useSchedules();
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // 表示月 ±1ヶ月分だけ取得
+  const dateRange = useMemo(() => {
+    const y = currentDate.getFullYear();
+    const m = currentDate.getMonth();
+    const start = new Date(y, m - 1, 1);
+    const end = new Date(y, m + 2, 0);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { start_date: fmt(start), end_date: fmt(end) };
+  }, [currentDate.getFullYear(), currentDate.getMonth()]);
+
+  const { schedules, loading, addSchedule, editSchedule, removeSchedule } = useSchedules(dateRange);
   const { clients } = useClients();
   const [showForm, setShowForm] = useState(false);
   const [formDate, setFormDate] = useState<string | undefined>(undefined);
@@ -72,6 +84,8 @@ export default function SchedulesPage() {
           ) : (
             <CalendarView
               schedules={schedules}
+              currentDate={currentDate}
+              onMonthChange={setCurrentDate}
               onNewSchedule={handleNewSchedule}
               onEditSchedule={handleEditSchedule}
               onDeleteSchedule={handleDeleteSchedule}

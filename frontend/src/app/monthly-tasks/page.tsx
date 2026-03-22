@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { getClients, getMonthlyTasks, upsertMonthlyTask, deleteMonthlyTask } from '@/lib/api';
-import { Client, MonthlyTask } from '@/types';
+import { useState } from 'react';
+import useSWR from 'swr';
+import { upsertMonthlyTask, deleteMonthlyTask } from '@/lib/api';
+import { useClients } from '@/hooks/useClients';
+import { fetcher } from '@/lib/fetcher';
+import { MonthlyTask } from '@/types';
 
 const TASK_TYPES = ['モニタ', '更新', '新規', '更+モニ', '新+モニ', 'その他', '最終モニタ'] as const;
 
@@ -17,37 +20,20 @@ const TASK_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function MonthlyTasksPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [tasks, setTasks] = useState<MonthlyTask[]>([]);
-
   const [year, setYear] = useState(new Date().getFullYear());
   const [clientTypeFilter, setClientTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('利用中');
   const [search, setSearch] = useState('');
   const [kanaFilter, setKanaFilter] = useState<string>('all');
-  const [loading, setLoading] = useState(true);
+
+  const { clients, loading: clientsLoading } = useClients();
+  const { data: tasks = [], mutate: mutateTasks, isLoading: tasksLoading } = useSWR<MonthlyTask[]>(
+    `/api/monthly-tasks?year=${year}`,
+    fetcher,
+  );
+  const loading = clientsLoading || tasksLoading;
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [clientsData, tasksData] = await Promise.all([
-        getClients(),
-        getMonthlyTasks(year),
-      ]);
-      setClients(clientsData);
-      setTasks(tasksData);
-    } catch (error) {
-      console.error('データの取得に失敗しました', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [year]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const KANA_GROUPS = [
     { label: 'ア', chars: 'アイウエオ' },
@@ -101,20 +87,19 @@ export default function MonthlyTasksPage() {
     try {
       if (value === '') {
         await deleteMonthlyTask(clientId, year, month);
-        setTasks(prev => prev.filter(t => !(t.client_id === clientId && t.year === year && t.month === month)));
+        await mutateTasks(tasks.filter(t => !(t.client_id === clientId && t.year === year && t.month === month)), false);
       } else {
         const updated = await upsertMonthlyTask({ client_id: clientId, year, month, task_type: value });
-        setTasks(prev => {
-          const exists = prev.find(t => t.client_id === clientId && t.year === year && t.month === month);
-          if (exists) {
-            return prev.map(t => (t.client_id === clientId && t.year === year && t.month === month) ? updated : t);
-          }
-          return [...prev, updated];
-        });
+        const exists = tasks.find(t => t.client_id === clientId && t.year === year && t.month === month);
+        if (exists) {
+          await mutateTasks(tasks.map(t => (t.client_id === clientId && t.year === year && t.month === month) ? updated : t), false);
+        } else {
+          await mutateTasks([...tasks, updated], false);
+        }
       }
     } catch (error) {
       console.error('タスクの更新に失敗しました', error);
-      await loadData();
+      await mutateTasks();
     }
   };
 

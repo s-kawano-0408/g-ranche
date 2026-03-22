@@ -39,6 +39,13 @@ app.state.limiter = limiter
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(status_code=429, content={"detail": "試行回数が多すぎます。しばらく経ってからお試しください。"})
 
+# 末尾スラッシュを自動除去（308リダイレクトを防止）
+@app.middleware("http")
+async def strip_trailing_slash(request: Request, call_next):
+    if request.url.path != "/" and request.url.path.endswith("/"):
+        request.scope["path"] = request.url.path.rstrip("/")
+    return await call_next(request)
+
 # Include routers
 app.include_router(clients.router, prefix="/api/clients", tags=["利用者管理"])
 app.include_router(support_plans.router, prefix="/api/support-plans", tags=["支援計画"])

@@ -10,9 +10,9 @@ import ClientForm from '@/components/clients/ClientForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, Plus, Sparkles, User, Calendar, Pencil } from 'lucide-react';
+import { ArrowLeft, Plus, Sparkles, User, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
-import { createCaseRecord, updateCaseRecord, deleteCaseRecord, generateSupportPlan } from '@/lib/api';
+import { createCaseRecord, updateCaseRecord, deleteCaseRecord, deleteClient, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetcher } from '@/lib/fetcher';
@@ -163,15 +163,31 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
                 {isAdmin && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => setShowEditForm(true)}
-                  >
-                    <Pencil size={14} />
-                    編集
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => setShowEditForm(true)}
+                    >
+                      <Pencil size={14} />
+                      編集
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={async () => {
+                        if (confirm(`「${fullName}」を削除しますか？\n（論理削除のため、データは保持されます）`)) {
+                          await deleteClient(id);
+                          router.push('/clients');
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      削除
+                    </Button>
+                  </div>
                 )}
               </div>
               <dl>

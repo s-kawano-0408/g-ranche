@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  skipTrailingSlashRedirect: true,
   async rewrites() {
     // 本番（Caddy経由）ではrewrite不要
     if (process.env.ENVIRONMENT === "production") {

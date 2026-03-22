@@ -24,13 +24,14 @@ const typeBgColors: Record<string, string> = {
 
 interface CalendarViewProps {
   schedules: Schedule[];
+  currentDate: Date;
+  onMonthChange: (date: Date) => void;
   onNewSchedule?: (date: string) => void;
   onEditSchedule?: (schedule: Schedule) => void;
   onDeleteSchedule?: (id: number) => void;
 }
 
-export default function CalendarView({ schedules, onNewSchedule, onEditSchedule, onDeleteSchedule }: CalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+export default function CalendarView({ schedules, currentDate, onMonthChange, onNewSchedule, onEditSchedule, onDeleteSchedule }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogSchedules, setDialogSchedules] = useState<Schedule[]>([]);
 
@@ -54,8 +55,8 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
     });
   };
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const prevMonth = () => onMonthChange(new Date(year, month - 1, 1));
+  const nextMonth = () => onMonthChange(new Date(year, month + 1, 1));
 
   const today = new Date();
 
@@ -107,7 +108,7 @@ export default function CalendarView({ schedules, onNewSchedule, onEditSchedule,
           <ChevronLeft size={16} />
         </Button>
         <button
-          onClick={() => setCurrentDate(new Date())}
+          onClick={() => onMonthChange(new Date())}
           className="font-semibold text-gray-900 text-lg hover:text-teal-600 transition-colors cursor-pointer"
           title="今月に戻る"
         >
