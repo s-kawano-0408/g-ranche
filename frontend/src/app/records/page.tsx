@@ -1,31 +1,24 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import RecordTimeline from '@/components/records/RecordTimeline';
 import RecordForm from '@/components/records/RecordForm';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
-import { CaseRecord, Client } from '@/types';
-import { getCaseRecords, createCaseRecord, updateCaseRecord, getClients } from '@/lib/api';
+import { CaseRecord } from '@/types';
 import ClientCombobox from '@/components/clients/ClientCombobox';
+import { useClients } from '@/hooks/useClients';
+import { useRecords } from '@/hooks/useRecords';
 
 export default function RecordsPage() {
-  const [records, setRecords] = useState<CaseRecord[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { clients } = useClients();
+  const { records, loading, addRecord, editRecord } = useRecords();
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CaseRecord | null>(null);
   const [clientFilter, setClientFilter] = useState<number | null>(null);
   const [typeFilter, setTypeFilter] = useState('all');
-
-  useEffect(() => {
-    Promise.all([getCaseRecords(), getClients()])
-      .then(([r, c]) => { setRecords(r); setClients(c); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
 
   const filtered = useMemo(() => {
     return records.filter(r => {
@@ -36,14 +29,12 @@ export default function RecordsPage() {
   }, [records, clientFilter, typeFilter]);
 
   const handleAdd = async (data: Omit<CaseRecord, 'id'>) => {
-    const newRecord = await createCaseRecord(data);
-    setRecords(prev => [newRecord, ...prev]);
+    await addRecord(data);
   };
 
   const handleUpdate = async (data: Omit<CaseRecord, 'id'>) => {
     if (!editingRecord) return;
-    const updated = await updateCaseRecord(editingRecord.id, data);
-    setRecords(prev => prev.map(r => r.id === editingRecord.id ? updated : r));
+    await editRecord(editingRecord.id, data);
   };
 
   const handleEdit = (record: CaseRecord) => {

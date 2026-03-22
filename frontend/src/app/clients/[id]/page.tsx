@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import Header from '@/components/layout/Header';
 import RecordTimeline from '@/components/records/RecordTimeline';
 import RecordForm from '@/components/records/RecordForm';
@@ -11,9 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Plus, Sparkles, User, Calendar, Pencil } from 'lucide-react';
 import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
-import { getClient, getSupportPlans, getCaseRecords, getSchedules, createCaseRecord, updateCaseRecord, generateSupportPlan } from '@/lib/api';
+import { createCaseRecord, updateCaseRecord, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetcher } from '@/lib/fetcher';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: '利用中', color: 'bg-teal-100 text-teal-700' },
@@ -44,48 +46,39 @@ export default function ClientDetailPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  const [client, setClient] = useState<Client | null>(null);
-  const [plans, setPlans] = useState<SupportPlan[]>([]);
-  const [records, setRecords] = useState<CaseRecord[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 4つの独立したSWRフック — 各リソースが独立にキャッシュされる
+  const { data: client, isLoading: clientLoading, mutate: mutateClient } = useSWR<Client>(
+    `/api/clients/${id}`,
+    fetcher,
+  );
+  const { data: plans = [] } = useSWR<SupportPlan[]>(
+    `/api/support-plans?client_id=${id}`,
+    fetcher,
+  );
+  const { data: records = [], mutate: mutateRecords } = useSWR<CaseRecord[]>(
+    `/api/records?client_id=${id}`,
+    fetcher,
+  );
+  const { data: schedules = [] } = useSWR<Schedule[]>(
+    `/api/schedules?client_id=${id}`,
+    fetcher,
+  );
+
   const [showRecordForm, setShowRecordForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CaseRecord | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState('');
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [c, p, r, s] = await Promise.all([
-          getClient(id),
-          getSupportPlans(id),
-          getCaseRecords(id),
-          getSchedules({ client_id: id }),
-        ]);
-        setClient(c);
-        setPlans(p);
-        setRecords(r);
-        setSchedules(s);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [id]);
-
   const handleAddRecord = async (data: Omit<CaseRecord, 'id'>) => {
     const newRecord = await createCaseRecord(data);
-    setRecords(prev => [newRecord, ...prev]);
+    await mutateRecords([newRecord, ...records], false);
   };
 
   const handleUpdateRecord = async (data: Omit<CaseRecord, 'id'>) => {
     if (!editingRecord) return;
     const updated = await updateCaseRecord(editingRecord.id, data);
-    setRecords(prev => prev.map(r => r.id === editingRecord.id ? updated : r));
+    await mutateRecords(records.map(r => r.id === editingRecord.id ? updated : r), false);
   };
 
   const handleGeneratePlan = async () => {
@@ -100,7 +93,7 @@ export default function ClientDetailPage() {
     }
   };
 
-  if (loading) {
+  if (clientLoading) {
     return (
       <div className="flex flex-col flex-1">
         <div className="h-20 bg-white border-b animate-pulse" />
@@ -277,7 +270,7 @@ export default function ClientDetailPage() {
                   新規記録
                 </Button>
               </div>
-              <RecordTimeline records={records} clients={[client]} onEdit={setEditingRecord} />
+              <RecordTimeline records={records} clients={client ? [client] : []} onEdit={setEditingRecord} />
             </div>
           </TabsContent>
 
@@ -325,7 +318,7 @@ export default function ClientDetailPage() {
         open={showRecordForm}
         onClose={() => setShowRecordForm(false)}
         onSubmit={handleAddRecord}
-        clients={[client]}
+        clients={client ? [client] : []}
         defaultClientId={client.id}
       />
 
@@ -334,7 +327,7 @@ export default function ClientDetailPage() {
           open={!!editingRecord}
           onClose={() => setEditingRecord(null)}
           onSubmit={handleUpdateRecord}
-          clients={[client]}
+          clients={client ? [client] : []}
           initialData={editingRecord}
         />
       )}
@@ -344,13 +337,7 @@ export default function ClientDetailPage() {
           open={showEditForm}
           onClose={async () => {
             setShowEditForm(false);
-            // 保存後にデータをリフレッシュ
-            try {
-              const refreshed = await getClient(id);
-              setClient(refreshed);
-            } catch (e) {
-              console.error(e);
-            }
+            await mutateClient();
           }}
           onSubmit={async () => {}}
           clientId={client.id}

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, case
 
 from database import get_db
 from models.client import Client
@@ -14,10 +14,14 @@ router = APIRouter()
 @router.get("/stats", response_model=ClientStats)
 def get_client_stats(db: Session = Depends(get_db), _user=Depends(get_current_user)):
     """利用者の統計情報を取得します（総数・児・者の人数）。"""
-    total = db.query(func.count(Client.id)).scalar()
-    child = db.query(func.count(Client.id)).filter(Client.client_type == '児').scalar()
-    adult = db.query(func.count(Client.id)).filter(Client.client_type == '者').scalar()
-    return {"total": total, "child": child, "adult": adult}
+    result = db.execute(
+        select(
+            func.count(Client.id).label('total'),
+            func.count(case((Client.client_type == '児', 1))).label('child'),
+            func.count(case((Client.client_type == '者', 1))).label('adult'),
+        )
+    ).one()
+    return {"total": result.total, "child": result.child, "adult": result.adult}
 
 
 @router.get("", response_model=List[ClientResponse])
