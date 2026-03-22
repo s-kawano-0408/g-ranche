@@ -6,23 +6,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./g_ranche.db")
-
-# SQLite needs check_same_thread=False for multi-threaded use
-connect_args = {}
-engine_args = {}
-if DATABASE_URL.startswith("sqlite"):
-    connect_args["check_same_thread"] = False
-else:
-    engine_args["pool_size"] = 5
-    engine_args["max_overflow"] = 10
-    engine_args["pool_pre_ping"] = True
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL が設定されていません。.env ファイルを確認してください。")
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args=connect_args,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
     echo=False,
-    **engine_args,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

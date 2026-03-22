@@ -7,7 +7,6 @@ primary_region = "nrt"
 [env]
   ALLOWED_ORIGINS = "https://g-ranche.fly.dev"
   ENVIRONMENT = "production"
-  DATABASE_URL = "sqlite:////data/g_ranche.db"
   BACKEND_URL = "http://localhost:8000"
 
 [http_service]
@@ -28,10 +27,6 @@ primary_region = "nrt"
     grace_period = "30s"
     method = "GET"
     path = "/"
-
-[mounts]
-  source = "g_ranche_data"
-  destination = "/data"
 
 [[vm]]
   size = "shared-cpu-1x"
