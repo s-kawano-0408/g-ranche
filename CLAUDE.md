@@ -35,7 +35,10 @@ npm run dev
 #### 初回セットアップ
 ```bash
 cd /Users/kawano/project/g-ranche/backend
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env    # APIキーを設定
+cat > .env << 'EOF'
+ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=postgresql://...          # Supabase接続文字列
+EOF
 ```
 
 ### トラブルシューティング
@@ -44,9 +47,10 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env    # APIキーを設定
 - **uv が見つからない**: フルパス `~/.local/bin/uv` を使う
 
 ## 技術スタック
-- **Backend**: Python + FastAPI + SQLAlchemy + SQLite（ローカル）/ PostgreSQL（本番）
+- **Backend**: Python + FastAPI + SQLAlchemy + PostgreSQL（Supabase）
 - **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS 4 + shadcn/ui + SWR
 - **AI**: Anthropic Python SDK (claude-sonnet-4-6) + Streaming + Tool Use + Prompt Caching
+- **DB**: Supabase PostgreSQL（Tokyo リージョン）
 - **デプロイ**: Docker Compose + Caddy（自動HTTPS）on Oracle Cloud VM
 - **レスポンシブ対応**: モバイル・タブレット・デスクトップ対応済み（Tailwind ブレイクポイント: sm/lg）
 
@@ -71,7 +75,7 @@ g-ranche/
 ├── .env.production          # 本番環境変数テンプレート（※Git管理外）
 ├── backend/
 │   ├── main.py              # FastAPI エントリポイント
-│   ├── database.py          # DB接続セットアップ（SQLite/PostgreSQL自動切替）
+│   ├── database.py          # DB接続セットアップ（PostgreSQL専用）
 │   ├── Dockerfile           # バックエンドのDockerイメージ定義
 │   ├── seed.py              # サンプルデータ（スタッフ2名・利用者200名・計画・記録・スケジュール）
 │   ├── models/              # SQLAlchemy テーブル定義
@@ -112,10 +116,14 @@ g-ranche/
         │   ├── clients/ClientCombobox.tsx # 検索可能な利用者選択（共通コンポーネント）
         │   └── layout/      # Sidebar, Header
         ├── hooks/           # カスタムフック
+        │   ├── useClients.ts       # 利用者データ（SWR）
+        │   ├── useRecords.ts       # 支援記録データ（SWR）
+        │   ├── useSchedules.ts     # スケジュールデータ（SWR）
         │   ├── useAIStream.ts      # AIストリーミング
         │   └── useAutoLock.ts      # 自動ロック（30分無操作でログアウト）
         ├── lib/             # ユーティリティ
-        │   └── api.ts              # APIクライアント（credentials: include）
+        │   ├── api.ts              # APIクライアント（credentials: include）
+        │   └── fetcher.ts          # SWR用fetcher関数
         └── types/           # TypeScript型定義
 ```
 
@@ -123,7 +131,7 @@ g-ranche/
 - `GET/POST /api/clients` - 利用者一覧（フリガナ順でソート）・新規作成
 - `GET/PUT/DELETE /api/clients/{id}` - 利用者詳細・更新（管理者のみ）・削除
 - `GET/POST /api/support-plans` - 支援計画
-- `GET/POST/PUT /api/records` - 支援記録
+- `GET/POST/PUT/DELETE /api/records` - 支援記録
 - `GET/POST/PUT /api/schedules` - スケジュール
 - `GET /api/schedules/today` - 本日の予定
 - `GET /api/monthly-tasks` - 月間業務タスク一覧（year, month, client_id でフィルタ可）
@@ -156,7 +164,8 @@ g-ranche/
 - **Prompt Caching**: システムプロンプトをキャッシュしてコスト削減
 - **Multi-turn**: `ai_conversations`テーブルで会話履歴を永続化
 
-## データベース (SQLite / PostgreSQL)
+## データベース (PostgreSQL on Supabase)
+- 全テーブル共通: `deleted_at` カラムによる**論理削除**（DELETE APIは `deleted_at` を設定、GETは `deleted_at IS NULL` でフィルタ）
 - `staffs` - スタッフ情報
 - `clients` - 利用者情報
   - family_name, given_name（姓・名）必須
@@ -165,7 +174,7 @@ g-ranche/
   - certificate_number（受給者証番号）必須
   - gender（性別）任意
   - client_type（"児"/"者"）必須
-  - staff_id, status（active/inactive）, end_date（終了日＝論理削除）, notes
+  - staff_id, status（active/inactive）, end_date, notes, deleted_at
 - `support_plans` - 個別支援計画書
 - `case_records` - 支援記録
 - `schedules` - スケジュール
@@ -206,7 +215,7 @@ g-ranche/
 ### デモ環境（Fly.io）
 - URL: https://g-ranche.fly.dev/
 - 構成: 単一コンテナ（Python + Node.js + Caddy）on Fly.io
-- DB: SQLite（Fly.io Volume `/data/g_ranche.db`）
+- DB: Supabase PostgreSQL（Tokyo リージョン、`DATABASE_URL` は `fly secrets` で管理）
 - リバースプロキシ: Caddy（`:8080` → `/api/*` はバックエンド、それ以外はNext.js）
 
 #### デプロイ手順
@@ -217,11 +226,8 @@ fly deploy --no-cache         # キャッシュなし再ビルド（フロント
 ```
 
 #### DB再作成（seedデータ再投入）
-```bash
-fly ssh console --app g-ranche -C "rm -f /data/g_ranche.db"
-fly deploy --no-cache
-# 起動時に自動で seed.py が実行される
-```
+Supabase ダッシュボードの SQL Editor で全テーブルを TRUNCATE するか、
+テーブルを DROP して再デプロイ（起動時にテーブルが空なら自動で seed.py が実行される）
 
 #### 関連ファイル
 - `fly.toml` — Fly.io設定（リージョン: nrt、VM: shared-cpu-1x 512MB）
@@ -254,9 +260,8 @@ docker compose --env-file .env.production up -d --build
 - 開発完了 → `main` にマージ → デプロイ
 
 ## 注意事項
-- `.env`ファイルに`ANTHROPIC_API_KEY`を設定すること
-- ローカル開発時のデータベースファイル: `backend/g_ranche.db`（SQLite）
-- 本番は PostgreSQL（`DATABASE_URL` 環境変数で切替）
+- `.env`ファイルに`ANTHROPIC_API_KEY`と`DATABASE_URL`を設定すること
+- DB は全環境で Supabase PostgreSQL を使用（`DATABASE_URL` 環境変数で接続）
 - CORSは環境変数 `ALLOWED_ORIGINS` で制御（デフォルト: `http://localhost:3000`、ワイルドカード `*` は不可）
 - 本番環境では `ENVIRONMENT=production` を設定（Cookie の secure フラグ用）
 - `seed.py` は200名の利用者 + 支援計画 + 支援記録 + スケジュール + 月間業務を生成
