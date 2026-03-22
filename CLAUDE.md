@@ -158,6 +158,24 @@ g-ranche/
 - DB: `monthly_tasks` テーブル（client_id + year + month でユニーク制約）
 - タスク種別ごとに色分け表示
 
+## パフォーマンス最適化
+本アプリでは「取りすぎ・呼びすぎ・描きすぎ」を排除することで体感速度を改善している。
+
+### データ取得の最適化
+- **SWRキャッシュ統一**: 全ページのデータ取得をSWRフックに統一。2回目以降のページ遷移はキャッシュから即表示
+- **スケジュール日付制限**: 全期間一括取得 → 表示月±1ヶ月だけ取得（`useSchedules` に `start_date`/`end_date` を渡す）
+- **stats API最適化**: ダッシュボード用の統計APIを軽量化
+
+### ネットワークの無駄を排除
+- **308リダイレクト解消**: FastAPIミドルウェアで末尾スラッシュを自動除去 + Next.js `skipTrailingSlashRedirect` で、全リクエストが2回飛んでいた問題を解消
+- **SWR deduping**: 30秒以内の同一リクエストは重複排除（`dedupingInterval: 30000`）
+
+### レンダリング最適化（月間業務管理）
+- **React.memo**: `TaskCell`/`ClientRow` コンポーネントをメモ化。2,400セル中、変更があったセルだけ再描画
+- **useMemo**: `filteredClients`（フィルタ+ソート結果）、`taskMap`（タスクルックアップ）をメモ化
+- **O(1)ルックアップ**: `tasks.find()` の O(n) → `Map.get()` の O(1) に改善
+- **useCallback**: `handleTaskChange` をメモ化し、React.memo の無効化を防止
+
 ## Claude AI 機能
 - **Tool Use**: 8ツール（利用者検索・スケジュール作成・記録作成など）
 - **Streaming**: SSEによるリアルタイム表示
