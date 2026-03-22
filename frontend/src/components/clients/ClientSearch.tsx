@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -27,6 +28,15 @@ export default function ClientSearch({
   statusFilter,
   onStatusChange,
 }: ClientSearchProps) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
   return (
     <div className="flex flex-wrap gap-3">
       <div className="relative flex-1 min-w-0 w-full sm:min-w-[200px]">
@@ -35,14 +45,14 @@ export default function ClientSearch({
           className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
         />
         <Input
-          placeholder="名前・フリガナで検索..."
+          placeholder={isMobile ? "検索..." : "名前・フリガナで検索..."}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9"
         />
       </div>
       <Select value={clientTypeFilter} onValueChange={onClientTypeChange}>
-        <SelectTrigger className="w-28">
+        <SelectTrigger className="w-20 sm:w-28 shrink-0">
           <SelectValue placeholder="児/者" />
         </SelectTrigger>
         <SelectContent>
@@ -52,7 +62,7 @@ export default function ClientSearch({
         </SelectContent>
       </Select>
       <Select value={statusFilter} onValueChange={onStatusChange}>
-        <SelectTrigger className="w-36">
+        <SelectTrigger className="w-24 sm:w-36 shrink-0">
           <SelectValue placeholder="ステータス" />
         </SelectTrigger>
         <SelectContent>

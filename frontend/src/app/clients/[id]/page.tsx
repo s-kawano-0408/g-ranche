@@ -142,7 +142,7 @@ export default function ClientDetailPage() {
 
       <div className="flex-1 p-4 sm:p-8">
         <Tabs defaultValue="profile">
-          <TabsList className="mb-6 w-full sm:w-auto overflow-x-auto">
+          <TabsList className="mb-6 w-full sm:w-auto grid grid-cols-2 sm:inline-flex !h-auto gap-[3px]">
             <TabsTrigger value="profile">プロフィール</TabsTrigger>
             <TabsTrigger value="plans">支援計画 ({plans.length})</TabsTrigger>
             <TabsTrigger value="records">支援記録 ({records.length})</TabsTrigger>

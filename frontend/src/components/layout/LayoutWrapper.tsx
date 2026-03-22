@@ -47,7 +47,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
+      <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         {children}
       </div>
     </div>

@@ -127,7 +127,7 @@ export default function MonthlyTasksPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 overflow-hidden">
+    <div className="flex flex-col h-screen p-4 sm:p-6 overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6 pl-10 lg:pl-0">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-800">月間業務管理</h1>
         <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ export default function MonthlyTasksPage() {
       </div>
 
       {/* 凡例 */}
-      <div className="flex gap-2 sm:gap-3 mb-4 flex-wrap">
+      <div className="flex gap-2 sm:gap-3 mb-4 flex-wrap shrink-0">
         {TASK_TYPES.map((type) => (
           <span
             key={type}
@@ -225,14 +225,14 @@ export default function MonthlyTasksPage() {
         ))}
       </div>
 
-      <div className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-x-auto max-w-full">
+      <div className="flex-1 min-h-0 border border-slate-200 rounded-lg bg-white shadow-sm overflow-auto max-w-full">
         <table className="border-collapse w-max">
           <thead>
-            <tr className="bg-teal-600 text-white">
-              <th className="sticky left-0 z-20 bg-teal-600 px-3 py-2 text-left text-sm font-medium border-r border-teal-500 w-[120px] max-w-[120px]">
+            <tr className="bg-teal-600 text-white sticky top-0 z-30">
+              <th className="sticky left-0 z-40 bg-teal-600 px-3 py-2 text-left text-sm font-medium border-r border-teal-500 w-[120px] max-w-[120px]">
                 フリガナ
               </th>
-              <th className="sticky left-[120px] z-20 bg-teal-600 px-3 py-2 text-left text-sm font-medium border-r border-teal-500 min-w-[100px] shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
+              <th className="sticky left-[120px] z-40 bg-teal-600 px-3 py-2 text-left text-sm font-medium border-r border-teal-500 min-w-[100px] shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]">
                 名前
               </th>
               {months.map((m) => (
@@ -244,9 +244,9 @@ export default function MonthlyTasksPage() {
                 </th>
               ))}
             </tr>
-            <tr className="bg-teal-50">
-              <th className="sticky left-0 z-20 bg-teal-50 px-3 py-1 border-r border-slate-200" />
-              <th className="sticky left-[120px] z-20 bg-teal-50 px-3 py-1 border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]" />
+            <tr className="bg-teal-50 sticky top-[37px] z-30">
+              <th className="sticky left-0 z-40 bg-teal-50 px-3 py-1 border-r border-slate-200" />
+              <th className="sticky left-[120px] z-40 bg-teal-50 px-3 py-1 border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.15)]" />
               {months.map((m) => (
                 <th
                   key={m}
