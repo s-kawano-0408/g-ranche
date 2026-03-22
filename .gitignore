@@ -43,7 +43,8 @@ frontend/out/
 # ============================
 # OS・エディタが作るゴミファイル
 # ============================
-.DS_Store          # macOS が作る隠しファイル
+# macOS が作る隠しファイル
+.DS_Store
 Thumbs.db          # Windows が作るサムネイルファイル
 *.swp              # Vim の一時ファイル
 .vscode/           # VSCode の設定（個人設定なので共有しない）
