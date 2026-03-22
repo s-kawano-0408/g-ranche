@@ -1,7 +1,7 @@
 import bcrypt
 import time
 from datetime import datetime, timedelta
-from jose import jwt
+from jose import jwt, JWTError
 import os
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -16,7 +16,14 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if os.getenv("ENVIRONMENT") == "production":
+        raise RuntimeError("本番環境では、SECRET_KEY 環境変数の設定が必須です")
+    import warnings
+    SECRET_KEY = "dev-only-secret-key-not-for-production"
+    warnings.warn("SECRET_KEY が未設定です。開発用のデフォルト値を使用します。")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 8
 
@@ -30,7 +37,7 @@ def verify_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except:
+    except JWTError:
         return None
 
 # --- 共通の認証チェック（各ルーターで使う） ---
@@ -67,6 +74,9 @@ def get_current_user(request: Request, response: Response, db: Session = Depends
 
     if not user:
         raise HTTPException(status_code=401, detail="ユーザーが見つかりません")
+
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="アカウントが無効化されています")
 
     return user
 

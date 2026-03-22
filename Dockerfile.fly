@@ -43,6 +43,10 @@ COPY Caddyfile.fly /etc/caddy/Caddyfile
 COPY start-fly.sh /app/start-fly.sh
 RUN chmod +x /app/start-fly.sh
 
+RUN useradd -m -s /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
 WORKDIR /app
 EXPOSE 8080
 

@@ -103,7 +103,9 @@ async def chat(
                 db.commit()
 
         except Exception as e:
-            yield await sse_event({"type": "error", "message": str(e)})
+            import logging
+            logging.error(f"AIチャットエラー: {e}")
+            yield await sse_event({"type": "error", "message": "エラーが発生しました。しばらく経ってからお試しください。"})
             yield await sse_event({"type": "done"})
 
     return StreamingResponse(
@@ -166,7 +168,9 @@ async def generate_plan(
         plan_text = ai_client.generate_plan(client_info, request.additional_info)
         return {"plan": plan_text, "client_id": request.client_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"支援計画の生成に失敗しました: {str(e)}")
+        import logging
+        logging.error(f"支援計画の生成に失敗しました: {e}")
+        raise HTTPException(status_code=500, detail="支援計画の生成に失敗しました。しばらく経ってからお試しください。")
 
 
 @router.post("/summarize-record")
@@ -209,7 +213,9 @@ async def summarize_record(
 
         return {"summary": summary, "record_id": request.record_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"要約の生成に失敗しました: {str(e)}")
+        import logging
+        logging.error(f"要約の生成に失敗しました: {e}")
+        raise HTTPException(status_code=500, detail="要約の生成に失敗しました。しばらく経ってからお試しください。")
 
 
 @router.post("/generate-report")
@@ -301,4 +307,6 @@ async def generate_report(
         )
         return {"report": report, "client_id": request.client_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"報告書の生成に失敗しました: {str(e)}")
+        import logging
+        logging.error(f"報告書の生成に失敗しました: {e}")
+        raise HTTPException(status_code=500, detail="報告書の生成に失敗しました。しばらく経ってからお試しください。")

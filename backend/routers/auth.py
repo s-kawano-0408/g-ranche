@@ -1,7 +1,9 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from database import get_db
 from models.user import User
@@ -10,13 +12,16 @@ from auth import verify_password, create_access_token, get_current_user, require
 from pydantic import BaseModel
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 class LoginRequest(BaseModel):
     email: str
     password: str
 
 @router.post("/login")
-def login(data: LoginRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+@limiter.limit("30/hour")
+async def login(request: Request, data: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.execute(select(User).where(User.email == data.email)).scalar_one_or_none()
 
     if not user:
@@ -64,6 +69,16 @@ def change_password(user_id: int, data: PasswordChangeRequest, db: Session = Dep
     user.password_hash = hash_password(data.new_password)
     db.commit()
     return {"message": "パスワードを変更しました"}
+
+@router.put("/users/{user_id}/deactivate")
+def deactivate_user(user_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    """アカウントを無効化します。（管理者のみ）"""
+    user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    user.is_active = False
+    db.commit()
+    return {"message": f"{user.name} のアカウントを無効化しました"}
 
 @router.post("/logout")
 def logout(response: Response):

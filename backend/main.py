@@ -1,8 +1,14 @@
 import os
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from database import engine, Base
+from auth import verify_token
 from routers import clients, support_plans, case_records, schedules, ai, monthly_tasks, auth
 
 # Import all models to ensure they are registered with SQLAlchemy
@@ -21,9 +27,17 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
+
+# レートリミット設定（IPアドレスで制限）
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "試行回数が多すぎます。しばらく経ってからお試しください。"})
 
 # Include routers
 app.include_router(clients.router, prefix="/api/clients", tags=["利用者管理"])
@@ -33,6 +47,28 @@ app.include_router(schedules.router, prefix="/api/schedules", tags=["スケジ�
 app.include_router(ai.router, prefix="/api/ai", tags=["AI アシスタント"])
 app.include_router(monthly_tasks.router, prefix="/api/monthly-tasks", tags=["月間業務管理"])
 app.include_router(auth.router, prefix="/api/auth", tags=["認証"])
+
+
+# 監査ログ設定
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+audit_logger = logging.getLogger("audit")
+
+@app.middleware("http")
+async def audit_log_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        user = "anonymous"
+        token = request.cookies.get("access_token")
+        if token:
+            payload = verify_token(token)
+            if payload:
+                user = payload.get("sub", "unknown")
+        client_ip = request.client.host if request.client else "unknown"
+        audit_logger.info(f"{request.method} {request.url.path} user={user} ip={client_ip} status={response.status_code}")
+    return response
 
 
 @app.on_event("startup")
