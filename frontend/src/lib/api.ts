@@ -238,6 +238,57 @@ export async function generateReport(
   });
 }
 
+// Transcription (Excel転記)
+// Next.js Route Handler（app/api/transcription/）が中継するため、
+// URLは同一オリジンの /api/transcription/... を使う。
+// Route Handler側で90秒タイムアウトを設定しているのでプロキシタイムアウト問題は解消。
+export async function ocrImage(
+  image: File,
+  sheetName: string,
+): Promise<{ fields: { field_name: string; value: string }[]; raw_text: string }> {
+  const formData = new FormData();
+  formData.append("image", image);
+  formData.append("sheet_name", sheetName);
+
+  const res = await fetch(`${BASE_URL}/api/transcription/ocr`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new Error("セッションが切れました。再ログインしてください。");
+  }
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(error || `API error: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function generateExcel(
+  sheetName: string,
+  fields: { field_name: string; value: string }[],
+): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}/api/transcription/generate`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sheet_name: sheetName, fields }),
+  });
+
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new Error("セッションが切れました。再ログインしてください。");
+  }
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(error || `API error: ${res.status}`);
+  }
+  return res.blob();
+}
+
 // Users (admin)
 export async function getUsers(): Promise<{ id: number; email: string; name: string; role: string }[]> {
   return fetchAPI("/api/auth/users");
