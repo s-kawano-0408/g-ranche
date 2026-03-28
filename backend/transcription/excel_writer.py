@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 _LOCAL_TEMPLATE = os.path.join(
     os.path.dirname(__file__), "..", "templates", "(者）★原本.xlsx"
 )
-_VOLUME_TEMPLATE = "/data/(者）★原本.xlsx"
+_VOLUME_TEMPLATE = "/data/template.xlsx"
 
 
 def _get_template_path() -> str:
