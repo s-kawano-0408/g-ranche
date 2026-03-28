@@ -15,6 +15,7 @@ import { Client, SupportPlan, CaseRecord, Schedule } from '@/types';
 import { createCaseRecord, updateCaseRecord, deleteCaseRecord, deleteClient, generateSupportPlan } from '@/lib/api';
 import { calcAge, calcGrade } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { fetcher } from '@/lib/fetcher';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -44,6 +45,7 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const id = Number(params.id);
   const { user } = useAuth();
+  const { showToast } = useToast();
   const isAdmin = user?.role === 'admin';
 
   // 4つの独立したSWRフック — 各リソースが独立にキャッシュされる
@@ -82,8 +84,13 @@ export default function ClientDetailPage() {
   };
 
   const handleDeleteRecord = async (recordId: number) => {
-    await deleteCaseRecord(recordId);
-    await mutateRecords(records.filter(r => r.id !== recordId), false);
+    try {
+      await deleteCaseRecord(recordId);
+      await mutateRecords(records.filter(r => r.id !== recordId), false);
+      showToast('支援記録を削除しました');
+    } catch {
+      showToast('削除に失敗しました', 'error');
+    }
   };
 
   const handleGeneratePlan = async () => {
@@ -179,8 +186,13 @@ export default function ClientDetailPage() {
                       className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={async () => {
                         if (confirm(`「${fullName}」を削除しますか？\n（論理削除のため、データは保持されます）`)) {
-                          await deleteClient(id);
-                          router.push('/clients');
+                          try {
+                            await deleteClient(id);
+                            showToast('利用者を削除しました');
+                            router.push('/clients');
+                          } catch {
+                            showToast('削除に失敗しました', 'error');
+                          }
                         }
                       }}
                     >

@@ -11,10 +11,12 @@ import { CaseRecord } from '@/types';
 import ClientCombobox from '@/components/clients/ClientCombobox';
 import { useClients } from '@/hooks/useClients';
 import { useRecords } from '@/hooks/useRecords';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function RecordsPage() {
   const { clients } = useClients();
   const { records, loading, addRecord, editRecord, removeRecord } = useRecords();
+  const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CaseRecord | null>(null);
   const [clientFilter, setClientFilter] = useState<number | null>(null);
@@ -87,7 +89,14 @@ export default function RecordsPage() {
             ))}
           </div>
         ) : (
-          <RecordTimeline records={filtered} clients={clients} onEdit={handleEdit} onDelete={removeRecord} />
+          <RecordTimeline records={filtered} clients={clients} onEdit={handleEdit} onDelete={async (id) => {
+            try {
+              await removeRecord(id);
+              showToast('支援記録を削除しました');
+            } catch {
+              showToast('削除に失敗しました', 'error');
+            }
+          }} />
         )}
       </div>
 

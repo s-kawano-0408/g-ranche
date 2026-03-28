@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { updateClient } from "@/lib/api";
+import { useToast } from "@/contexts/ToastContext";
 
 // フォームのデータ型
 interface ClientFormData {
@@ -73,6 +74,7 @@ export default function ClientForm({
   title,
   clientId,
 }: ClientFormProps) {
+  const { showToast } = useToast();
   const isEditMode = clientId !== undefined;
   const [form, setForm] = useState<ClientFormData>({
     ...defaultData,
@@ -146,8 +148,10 @@ export default function ClientForm({
 
       onClose();
       setForm(defaultData);
+      showToast(isEditMode ? '利用者情報を更新しました' : '利用者を登録しました');
     } catch (e) {
       console.error(e);
+      showToast(isEditMode ? '更新に失敗しました' : '登録に失敗しました', 'error');
     } finally {
       setLoading(false);
     }

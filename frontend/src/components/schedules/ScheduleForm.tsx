@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import ClientCombobox from '@/components/clients/ClientCombobox';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ScheduleFormProps {
   open: boolean;
@@ -108,6 +109,7 @@ function formatTime(date: Date): string {
 }
 
 export default function ScheduleForm({ open, onClose, onSubmit, clients, initialData, defaultDate }: ScheduleFormProps) {
+  const { showToast } = useToast();
 
   const [form, setForm] = useState({
     title: '',
@@ -165,8 +167,10 @@ export default function ScheduleForm({ open, onClose, onSubmit, clients, initial
       } as Omit<Schedule, 'id'>;
       await onSubmit(submitData);
       onClose();
+      showToast(initialData?.title ? 'スケジュールを更新しました' : 'スケジュールを登録しました');
     } catch (e) {
       console.error(e);
+      showToast(initialData?.title ? '更新に失敗しました' : '登録に失敗しました', 'error');
     } finally {
       setLoading(false);
     }

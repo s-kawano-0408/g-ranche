@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { SWRConfig } from 'swr';
 import Sidebar from '@/components/layout/Sidebar';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ToastProvider } from '@/contexts/ToastContext';
 
 // 認証チェック付きのレイアウト
 function LayoutContent({ children }: { children: React.ReactNode }) {
@@ -64,7 +65,9 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
       errorRetryCount: 2,            // エラー時リトライは2回まで
     }}>
       <AuthProvider>
-        <LayoutContent>{children}</LayoutContent>
+        <ToastProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </ToastProvider>
       </AuthProvider>
     </SWRConfig>
   );

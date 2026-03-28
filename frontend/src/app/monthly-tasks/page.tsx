@@ -6,6 +6,7 @@ import { upsertMonthlyTask, deleteMonthlyTask } from '@/lib/api';
 import { useClients } from '@/hooks/useClients';
 import { fetcher } from '@/lib/fetcher';
 import { Client, MonthlyTask } from '@/types';
+import { useToast } from '@/contexts/ToastContext';
 
 const TASK_TYPES = ['モニタ', '更新', '新規', '更+モニ', '新+モニ', 'その他', '最終モニタ'] as const;
 
@@ -81,6 +82,7 @@ export default function MonthlyTasksPage() {
   const [search, setSearch] = useState('');
   const [kanaFilter, setKanaFilter] = useState<string>('all');
 
+  const { showToast } = useToast();
   const { clients, loading: clientsLoading } = useClients();
   const { data: tasks = [], mutate: mutateTasks, isLoading: tasksLoading } = useSWR<MonthlyTask[]>(
     `/api/monthly-tasks?year=${year}`,
@@ -164,9 +166,10 @@ export default function MonthlyTasksPage() {
       }
     } catch (error) {
       console.error('タスクの更新に失敗しました', error);
+      showToast('タスクの更新に失敗しました', 'error');
       await mutateTasks();
     }
-  }, [tasks, year, mutateTasks]);
+  }, [tasks, year, mutateTasks, showToast]);
 
   if (loading) {
     return (

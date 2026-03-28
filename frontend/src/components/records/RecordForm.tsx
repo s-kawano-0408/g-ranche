@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import ClientCombobox from '@/components/clients/ClientCombobox';
+import { useToast } from '@/contexts/ToastContext';
 
 interface RecordFormProps {
   open: boolean;
@@ -29,6 +30,7 @@ export default function RecordForm({ open, onClose, onSubmit, clients, defaultCl
     next_action: '',
   });
   const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
   const isEditMode = !!initialData;
 
   // ダイアログが開くたびにフォームをリセット
@@ -68,8 +70,10 @@ export default function RecordForm({ open, onClose, onSubmit, clients, defaultCl
       setLoading(true);
       await onSubmit(form as Omit<CaseRecord, 'id'>);
       onClose();
+      showToast(isEditMode ? '支援記録を更新しました' : '支援記録を登録しました');
     } catch (e) {
       console.error(e);
+      showToast(isEditMode ? '更新に失敗しました' : '登録に失敗しました', 'error');
     } finally {
       setLoading(false);
     }

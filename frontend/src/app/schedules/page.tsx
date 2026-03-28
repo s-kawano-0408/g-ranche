@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useSchedules } from '@/hooks/useSchedules';
 import { useClients } from '@/hooks/useClients';
+import { useToast } from '@/contexts/ToastContext';
 import { Card } from '@/components/ui/card';
 import { Schedule } from '@/types';
 
@@ -26,6 +27,7 @@ export default function SchedulesPage() {
 
   const { schedules, loading, addSchedule, editSchedule, removeSchedule } = useSchedules(dateRange);
   const { clients } = useClients();
+  const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [formDate, setFormDate] = useState<string | undefined>(undefined);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
@@ -45,8 +47,10 @@ export default function SchedulesPage() {
   const handleDeleteSchedule = async (id: number) => {
     try {
       await removeSchedule(id);
+      showToast('スケジュールを削除しました');
     } catch (e) {
       console.error(e);
+      showToast('削除に失敗しました', 'error');
     }
   };
 

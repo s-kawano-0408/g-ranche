@@ -6,6 +6,7 @@ import ImageUploader from '@/components/transcription/ImageUploader';
 import SheetSelector from '@/components/transcription/SheetSelector';
 import FieldPreview from '@/components/transcription/FieldPreview';
 import { ocrImage, generateExcel } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Field {
   field_name: string;
@@ -20,6 +21,7 @@ export default function TranscriptionPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'upload' | 'preview'>('upload');
+  const { showToast } = useToast();
 
   const handleOcr = async () => {
     if (!selectedImage) return;
@@ -30,8 +32,10 @@ export default function TranscriptionPage() {
       const result = await ocrImage(selectedImage, selectedSheet);
       setFields(result.fields);
       setStep('preview');
+      showToast('読み取りが完了しました');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'OCR処理に失敗しました');
+      showToast('読み取りに失敗しました', 'error');
     } finally {
       setIsOcrLoading(false);
     }
@@ -60,8 +64,10 @@ export default function TranscriptionPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       handleReset();
+      showToast('Excelファイルをダウンロードしました');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Excel生成に失敗しました');
+      showToast('Excel生成に失敗しました', 'error');
     } finally {
       setIsGenerating(false);
     }
