@@ -16,7 +16,6 @@ export default function TranscriptionPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedSheet, setSelectedSheet] = useState('別紙１');
   const [fields, setFields] = useState<Field[]>([]);
-  const [rawText, setRawText] = useState('');
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +29,6 @@ export default function TranscriptionPage() {
     try {
       const result = await ocrImage(selectedImage, selectedSheet);
       setFields(result.fields);
-      setRawText(result.raw_text);
       setStep('preview');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'OCR処理に失敗しました');
@@ -61,6 +59,7 @@ export default function TranscriptionPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      handleReset();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Excel生成に失敗しました');
     } finally {
@@ -71,7 +70,6 @@ export default function TranscriptionPage() {
   const handleReset = () => {
     setSelectedImage(null);
     setFields([]);
-    setRawText('');
     setError(null);
     setStep('upload');
   };
@@ -131,7 +129,6 @@ export default function TranscriptionPage() {
             <FieldPreview
               fields={fields}
               onFieldChange={handleFieldChange}
-              rawText={rawText}
             />
           </div>
 

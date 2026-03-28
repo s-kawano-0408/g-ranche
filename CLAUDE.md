@@ -94,11 +94,15 @@ g-ranche/
 │   │   ├── schedules.py     # スケジュール
 │   │   ├── monthly_tasks.py # 月間業務管理
 │   │   └── ai.py            # AIチャット・文書生成
-│   └── ai/                  # AI ロジック
-│       ├── client.py        # Anthropic クライアント + ストリーミング + Tool Use ループ
-│       ├── tools.py         # 8つのツール定義
-│       ├── tool_executor.py # ツール実行（DB操作）
-│       └── system_prompt.py # システムプロンプト（Prompt Caching対応）
+│   ├── ai/                  # AI ロジック
+│   │   ├── client.py        # Anthropic クライアント + ストリーミング + Tool Use ループ
+│   │   ├── tools.py         # 8つのツール定義
+│   │   ├── tool_executor.py # ツール実行（DB操作）
+│   │   └── system_prompt.py # システムプロンプト（Prompt Caching対応）
+│   └── transcription/       # Excel転記
+│       ├── ocr.py           # Claude Vision APIでOCR + 構造化
+│       ├── cell_mappings.py # セルマッピング定義 + 抽出プロンプト
+│       └── excel_writer.py  # openpyxlでテンプレートに書き込み
 └── frontend/
     ├── Dockerfile           # フロントエンドのDockerイメージ定義
     └── src/
@@ -108,7 +112,8 @@ g-ranche/
         │   ├── monthly-tasks/ # 月間業務管理
         │   ├── schedules/   # スケジュール
         │   ├── records/     # 支援記録
-        │   └── ai/          # AIアシスタント
+        │   ├── ai/          # AIアシスタント
+        │   └── transcription/ # Excel転記
         ├── middleware.ts     # nonceベースCSPヘッダー生成
         ├── contexts/        # Reactコンテキスト
         │   └── AuthContext.tsx      # 認証状態管理（Cookie + 自動ロック）
@@ -146,6 +151,8 @@ g-ranche/
 - `POST /api/ai/generate-plan` - 支援計画書生成
 - `POST /api/ai/summarize-record` - 支援記録要約
 - `POST /api/ai/generate-report` - モニタリング報告書生成
+- `POST /api/transcription/ocr` - 画像OCR → フィールド抽出
+- `POST /api/transcription/generate` - フィールドデータ → Excel生成・ダウンロード
 
 ## 月間業務管理
 スプレッドシート風の画面で、利用者ごとに月別のタスクを管理する。
@@ -175,6 +182,15 @@ g-ranche/
 - **useMemo**: `filteredClients`（フィルタ+ソート結果）、`taskMap`（タスクルックアップ）をメモ化
 - **O(1)ルックアップ**: `tasks.find()` の O(n) → `Map.get()` の O(1) に改善
 - **useCallback**: `handleTaskChange` をメモ化し、React.memo の無効化を防止
+
+## Excel転記機能
+書類の写真を読み取り、Excelテンプレートに転記する機能。
+- **OCR**: Claude Vision API（claude-sonnet-4-6）で画像から直接フィールド抽出・構造化（1回のAPI呼び出しで完結）
+- **Excel書き込み**: openpyxlでテンプレートの書式を保持したまま書き込み
+- **対応シート**: 別紙１、1_1計画案（Phase 1）
+- **テンプレート**: `backend/templates/(者）★原本.xlsx`（事業所名が含まれるためGit管理外。Fly.ioには手動配置）
+- **プロキシ**: Next.js Route Handlerで90秒タイムアウト設定（長時間OCR処理対応）
+- **セキュリティ**: Anthropic APIはデータをモデル訓練に使用しない（要配慮個人情報の保護）
 
 ## Claude AI 機能
 - **Tool Use**: 8ツール（利用者検索・スケジュール作成・記録作成など）
@@ -284,3 +300,4 @@ docker compose --env-file .env.production up -d --build
 - 本番環境では `ENVIRONMENT=production` を設定（Cookie の secure フラグ用）
 - `seed.py` は200名の利用者 + 支援計画 + 支援記録 + スケジュール + 月間業務を生成
 - `.env.production` と `pgdata/` は `.gitignore` でGit管理外
+- Excel転記テンプレート（`backend/templates/*.xlsx`）はGit管理外。デプロイ先には手動配置

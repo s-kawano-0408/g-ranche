@@ -19,9 +19,18 @@ from transcription.cell_mappings import CELL_MAPPINGS, SUPPORTED_SHEETS, DATE_FI
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_PATH = os.path.join(
+# ローカル: backend/templates/  デプロイ: /data/（Fly.io Volume）
+_LOCAL_TEMPLATE = os.path.join(
     os.path.dirname(__file__), "..", "templates", "(者）★原本.xlsx"
 )
+_VOLUME_TEMPLATE = "/data/(者）★原本.xlsx"
+
+
+def _get_template_path() -> str:
+    """テンプレートファイルのパスを返す。Volume優先、なければローカル。"""
+    if os.path.exists(_VOLUME_TEMPLATE):
+        return _VOLUME_TEMPLATE
+    return _LOCAL_TEMPLATE
 
 # 日本語日付フォーマット
 _JAPANESE_DATE_FORMAT = 'yyyy"年"m"月"d"日"'
@@ -77,14 +86,15 @@ def write_to_template(
     if sheet_name not in SUPPORTED_SHEETS:
         raise ValueError(f"未対応のシート: {sheet_name}（対応: {SUPPORTED_SHEETS}）")
 
-    if not os.path.exists(TEMPLATE_PATH):
+    template_path = _get_template_path()
+    if not os.path.exists(template_path):
         raise FileNotFoundError(
-            f"テンプレートが見つかりません: {TEMPLATE_PATH}\n"
+            f"テンプレートが見つかりません: {template_path}\n"
             "backend/templates/ に (者）★原本.xlsx を配置してください。"
         )
 
     # テンプレートを直接開く（書式はそのまま保持される）
-    wb = load_workbook(TEMPLATE_PATH)
+    wb = load_workbook(template_path)
     ws = wb[sheet_name]
 
     mapping = CELL_MAPPINGS.get(sheet_name, {})

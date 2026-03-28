@@ -245,7 +245,7 @@ export async function generateReport(
 export async function ocrImage(
   image: File,
   sheetName: string,
-): Promise<{ fields: { field_name: string; value: string }[]; raw_text: string }> {
+): Promise<{ fields: { field_name: string; value: string }[] }> {
   const formData = new FormData();
   formData.append("image", image);
   formData.append("sheet_name", sheetName);

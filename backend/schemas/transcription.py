@@ -10,7 +10,6 @@ class ExtractedField(BaseModel):
 class OCRResponse(BaseModel):
     """OCR結果のレスポンス"""
     fields: list[ExtractedField]
-    raw_text: str  # デバッグ用: Vision APIの生テキスト
 
 
 class GenerateRequest(BaseModel):

@@ -1,87 +1,53 @@
 """
-OCR処理: Google Cloud Vision API + Gemini API（どちらもREST + GCP APIキー）
+OCR処理: Anthropic Claude API（Vision機能で画像から直接構造化）
 
-1. Google Cloud Vision で画像からテキストを抽出
-2. Gemini にテキストを渡してフィールド単位のJSONに構造化
-
-両方とも GCP_API_KEY 1つで認証。
+Claude に画像を直接送り、OCR + フィールド単位JSONへの構造化を1回のリクエストで行う。
+ANTHROPIC_API_KEY を使用（SDK が自動読み込み）。
 """
 
 import base64
 import json
-import os
 import logging
 
-import httpx
+import anthropic
+from dotenv import load_dotenv
 
 from transcription.cell_mappings import EXTRACTION_PROMPTS, CELL_MAPPINGS
 
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
-VISION_API_URL = "https://vision.googleapis.com/v1/images:annotate"
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+MODEL = "claude-sonnet-4-6"
 
 
-def _get_api_key() -> str:
-    api_key = os.getenv("GCP_API_KEY")
-    if not api_key:
-        raise ValueError("GCP_API_KEY が .env に設定されていません")
-    return api_key
+def _detect_media_type(image_bytes: bytes) -> str:
+    """画像のバイト列からメディアタイプを判定する。"""
+    if image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+        return "image/png"
+    if image_bytes[:2] == b'\xff\xd8':
+        return "image/jpeg"
+    if image_bytes[:4] == b'RIFF' and image_bytes[8:12] == b'WEBP':
+        return "image/webp"
+    if image_bytes[:3] == b'GIF':
+        return "image/gif"
+    # デフォルトはJPEG（福祉書類のスキャンで最も一般的）
+    return "image/jpeg"
 
 
-def extract_text_from_image(image_bytes: bytes) -> str:
-    """
-    Google Cloud Vision API で画像からテキストを抽出。
-    """
-    api_key = _get_api_key()
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-
-    request_body = {
-        "requests": [
-            {
-                "image": {"content": image_b64},
-                "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
-                "imageContext": {"languageHints": ["ja"]},
-            }
-        ]
-    }
-
-    response = httpx.post(
-        VISION_API_URL,
-        params={"key": api_key},
-        json=request_body,
-        timeout=30.0,
-    )
-
-    if response.status_code != 200:
-        raise RuntimeError(f"Vision API エラー ({response.status_code}): {response.text}")
-
-    result = response.json()
-    responses = result.get("responses", [])
-
-    if not responses:
-        return ""
-
-    error = responses[0].get("error")
-    if error:
-        raise RuntimeError(f"Vision API エラー: {error.get('message', str(error))}")
-
-    full_text = responses[0].get("fullTextAnnotation", {}).get("text", "")
-    logger.info(f"Vision API: {len(full_text)}文字を抽出")
-    return full_text
-
-
-def structure_text_with_gemini(
-    raw_text: str,
+def process_with_claude(
+    image_bytes: bytes,
     sheet_name: str,
 ) -> list[dict[str, str]]:
     """
-    Gemini API でOCRテキストをフィールド単位のJSONに構造化。
+    Claude Vision API で画像からフィールド単位のJSONを直接抽出・構造化する。
     """
     if sheet_name not in EXTRACTION_PROMPTS:
         raise ValueError(f"未対応のシート: {sheet_name}")
 
-    api_key = _get_api_key()
+    client = anthropic.Anthropic()
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    media_type = _detect_media_type(image_bytes)
 
     prompt = f"""{EXTRACTION_PROMPTS[sheet_name]}
 
@@ -91,32 +57,33 @@ def structure_text_with_gemini(
   {{"field_name": "フィールド名", "value": "値"}},
   ...
 ]
-```
+```"""
 
---- OCRテキスト ---
-{raw_text}
-"""
-
-    request_body = {
-        "contents": [
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=4096,
+        messages=[
             {
-                "parts": [{"text": prompt}]
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": image_b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    },
+                ],
             }
-        ]
-    }
-
-    response = httpx.post(
-        GEMINI_API_URL,
-        params={"key": api_key},
-        json=request_body,
-        timeout=60.0,
+        ],
     )
 
-    if response.status_code != 200:
-        raise RuntimeError(f"Gemini API エラー ({response.status_code}): {response.text}")
-
-    result = response.json()
-    response_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+    response_text = response.content[0].text.strip()
 
     # JSON部分を抽出（```json ... ``` で囲まれている場合を考慮）
     if "```json" in response_text:
@@ -133,12 +100,13 @@ def structure_text_with_gemini(
         if field["field_name"] in valid_field_names:
             validated_fields.append(field)
 
-    # マッピングにあるがGeminiが返さなかったフィールドを空で補完
+    # マッピングにあるがClaudeが返さなかったフィールドを空で補完
     returned_names = {f["field_name"] for f in validated_fields}
     for name in valid_field_names:
         if name not in returned_names:
             validated_fields.append({"field_name": name, "value": ""})
 
+    logger.info(f"Claude Vision: {len(validated_fields)}フィールドを抽出 (シート: {sheet_name})")
     return validated_fields
 
 
@@ -146,13 +114,8 @@ async def process_ocr(image_bytes: bytes, sheet_name: str) -> dict:
     """
     OCR処理のメインエントリポイント。
     """
-    # 1. Google Vision でテキスト抽出
-    raw_text = extract_text_from_image(image_bytes)
-
-    # 2. Gemini で構造化
-    fields = structure_text_with_gemini(raw_text, sheet_name)
+    fields = process_with_claude(image_bytes, sheet_name)
 
     return {
         "fields": fields,
-        "raw_text": raw_text,
     }

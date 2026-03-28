@@ -28,6 +28,10 @@ primary_region = "nrt"
     method = "GET"
     path = "/"
 
+[mounts]
+  source = "g_ranche_data"
+  destination = "/data"
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"

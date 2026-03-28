@@ -8,10 +8,9 @@ interface Field {
 interface FieldPreviewProps {
   fields: Field[];
   onFieldChange: (index: number, value: string) => void;
-  rawText: string;
 }
 
-export default function FieldPreview({ fields, onFieldChange, rawText }: FieldPreviewProps) {
+export default function FieldPreview({ fields, onFieldChange }: FieldPreviewProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -35,16 +34,6 @@ export default function FieldPreview({ fields, onFieldChange, rawText }: FieldPr
           ))}
         </div>
       </div>
-
-      {/* OCR生テキスト（折りたたみ） */}
-      <details className="group">
-        <summary className="text-sm text-slate-500 cursor-pointer hover:text-slate-700">
-          OCR読み取りテキストを表示
-        </summary>
-        <pre className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 whitespace-pre-wrap max-h-48 overflow-y-auto">
-          {rawText}
-        </pre>
-      </details>
     </div>
   );
 }

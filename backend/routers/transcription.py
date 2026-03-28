@@ -50,7 +50,6 @@ async def ocr_image(
         result = await process_ocr(content, sheet_name)
         return OCRResponse(
             fields=result["fields"],
-            raw_text=result["raw_text"],
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
