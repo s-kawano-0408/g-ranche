@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ローカル: backend/templates/  デプロイ: /data/（Fly.io Volume）
 _LOCAL_TEMPLATE = os.path.join(
-    os.path.dirname(__file__), "..", "templates", "(者）★原本.xlsx"
+    os.path.dirname(__file__), "..", "templates", "template.xlsx"
 )
 _VOLUME_TEMPLATE = "/data/template.xlsx"
 
