@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 
 from database import engine, Base
 from auth import verify_token
-from routers import clients, support_plans, case_records, schedules, ai, monthly_tasks, auth
+from routers import clients, support_plans, case_records, schedules, ai, monthly_tasks, auth, transcription
 
 # Import all models to ensure they are registered with SQLAlchemy
 import models  # noqa: F401
@@ -54,6 +54,7 @@ app.include_router(schedules.router, prefix="/api/schedules", tags=["スケジ�
 app.include_router(ai.router, prefix="/api/ai", tags=["AI アシスタント"])
 app.include_router(monthly_tasks.router, prefix="/api/monthly-tasks", tags=["月間業務管理"])
 app.include_router(auth.router, prefix="/api/auth", tags=["認証"])
+app.include_router(transcription.router, prefix="/api/transcription", tags=["Excel転記"])
 
 
 # 監査ログ設定

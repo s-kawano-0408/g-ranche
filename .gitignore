@@ -62,6 +62,18 @@ pgdata/
 .claude/mcp.json
 
 # ============================
+# Excel転記テンプレート・書類画像
+# ============================
+# テンプレートには事業所名等が含まれるためGit管理外
+# Fly.ioには手動でアップロードする
+backend/templates/*.xlsx
+
+# 書類画像（個人情報が含まれるので絶対にGit管理しない）
+backend/templates/*.jpg
+backend/templates/*.jpeg
+backend/templates/*.png
+
+# ============================
 # 個人メモ
 # ============================
 interview-notes/

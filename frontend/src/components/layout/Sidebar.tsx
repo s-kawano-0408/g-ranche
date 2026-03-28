@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut, Settings, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut, Settings, Menu, X, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/schedules', label: 'スケジュール', icon: Calendar },
   { href: '/records', label: '支援記録', icon: FileText },
   { href: '/ai', label: 'AIアシスタント', icon: Bot },
+  { href: '/transcription', label: 'Excel転記', icon: FileSpreadsheet },
 ];
 
 export default function Sidebar() {
