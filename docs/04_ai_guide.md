@@ -117,7 +117,7 @@ class ToolExecutor:
         # 誕生日の月日だけで比較するロジックを書く
         clients = self.db.execute(select(Client).where(...)).scalars().all()
         return {
-            "clients": [{"id": c.id, "pseudonym_hash": c.pseudonym_hash} for c in clients],
+            "clients": [{"id": c.id, "name": f"{c.family_name} {c.given_name}"} for c in clients],
             "total": len(clients),
         }
 ```
