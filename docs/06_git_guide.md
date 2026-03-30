@@ -1,10 +1,10 @@
 # Git 管理ガイド
 
-## 現在の状態（2026-03-08 時点）
+## 現在の状態
 
-- `git init` 済み
-- 初回コミット済み（コミットID: ab826cc）
-- GitHub への push はまだ
+- GitHub リポジトリ: public（`g-ranche`）
+- ブランチ: `main`（本番）、`develop`（開発）
+- 開発フロー: `develop` で作業 → `main` にマージ → デプロイ
 
 ---
 
@@ -47,7 +47,7 @@ git diff
 # 何が変わったか確認する（ステージング後）
 git diff --staged
 
-# 特定のコミットに戻す（ファイルの中身を確認するだけ）
+# 特定のコミットの中身を確認する
 git show コミットID
 
 # ステージングを取り消す
@@ -59,24 +59,49 @@ git restore ファイル名
 
 ---
 
+## ブランチ戦略
+
+```
+main     ← 本番（デプロイ対象）
+  └── develop  ← 開発（ローカルで作業するブランチ）
+```
+
+```bash
+# developブランチで作業
+git checkout develop
+
+# 開発完了 → mainにマージ
+git checkout main
+git merge develop
+
+# デプロイ
+fly deploy
+
+# developに戻る
+git checkout develop
+```
+
+---
+
 ## コミットメッセージの書き方
 
 ```
 種別: 何をしたか
 
 種別の例：
-  feat:  新機能を追加
-  fix:   バグを修正
-  docs:  ドキュメントを更新
-  style: 見た目の変更（機能は変わらない）
+  feat:     新機能を追加
+  fix:      バグを修正
+  docs:     ドキュメントを更新
+  style:    見た目の変更（機能は変わらない）
   refactor: コードの整理（機能は変わらない）
+  chore:    ツール・設定の変更
 ```
 
 例：
 ```
 feat: 利用者の検索機能を追加
-fix: スケジュール画面が表示されないバグを修正
-docs: Git管理ガイドを追加
+fix: ダッシュボードの利用者数を利用中のみに変更
+docs: ドキュメントを最新の状態に更新
 ```
 
 ---
@@ -84,30 +109,20 @@ docs: Git管理ガイドを追加
 ## .gitignore で管理対象外にしているもの
 
 ```
-backend/.venv/    → Pythonの仮想環境（uv が管理する）
-*.db              → データベースファイル（個人データが入る）
-.env              → APIキー・パスワード（絶対にGitHubに上げない）
-node_modules/     → フロントエンドの依存パッケージ
-frontend/.next/   → Next.js のビルド結果
-.DS_Store         → macOSが作るゴミファイル
+backend/.venv/                → Pythonの仮想環境（uv が管理する）
+*.db                          → データベースファイル
+.env                          → APIキー・パスワード（絶対にGitHubに上げない）
+node_modules/                 → フロントエンドの依存パッケージ
+frontend/.next/               → Next.js のビルド結果
+.DS_Store                     → macOSが作るゴミファイル
+backend/templates/*.xlsx      → Excelテンプレート（事業所名が含まれるため）
+backend/templates/*.jpg,*.png → テスト用画像ファイル
 ```
 
 **なぜ .env を除外するのか：**
-`.env` にはAnthropicのAPIキーが書かれています。
+`.env` にはAnthropicのAPIキーやDB接続文字列が書かれています。
 GitHubに上げると世界中から見えてしまい、不正利用される危険があります。
 
----
-
-## GitHub に上げる手順（未実施）
-
-1. GitHubでリポジトリを新規作成
-2. ローカルとGitHubを紐づける
-   ```bash
-   git remote add origin https://github.com/ユーザー名/リポジトリ名.git
-   ```
-3. push する
-   ```bash
-   git push -u origin main
-   ```
-
-→ GitHubのアカウントを作ったら実施する
+**なぜテンプレートを除外するのか：**
+Excelテンプレートには事業所名など固有情報が含まれており、リポジトリがpublicのため。
+デプロイ先（Fly.io）にはVolumeに手動で配置します。

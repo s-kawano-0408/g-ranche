@@ -4,7 +4,8 @@
 
 ```python
 # database.py
-engine = create_engine("sqlite:///./g_ranche.db")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -16,43 +17,56 @@ def get_db():
         db.close()   # リクエスト終了後に必ず閉じる
 ```
 
-**ポイント：** `get_db()` はFastAPIの依存性注入で使います。
-各エンドポイントの引数に `db: Session = Depends(get_db)` と書くだけでDBセッションが使えます。
+**ポイント：**
+- `DATABASE_URL` は `.env` に記述（Supabase PostgreSQLの接続文字列）
+- `get_db()` はFastAPIの依存性注入で使う
+- 各エンドポイントの引数に `db: Session = Depends(get_db)` と書くだけでDBセッションが使える
 
 ---
 
 ## 2. models/ — テーブル定義
 
 ```python
-# models/client.py（抜粋）
+# models/client.py（現在の定義）
 class Client(Base):
-    __tablename__ = "clients"   # ← SQLiteのテーブル名
+    __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, index=True)
-    pseudonym_hash = Column(String, unique=True, nullable=False)  # 仮名化ハッシュ
-    gender = Column(String)
-    client_type = Column(String, nullable=False)  # "児"/"者"
-    staff_id = Column(Integer, ForeignKey("staffs.id"))  # 外部キー
-    status = Column(String, default="active")
+    family_name = Column(String, nullable=False)        # 姓
+    given_name = Column(String, nullable=False)         # 名
+    family_name_kana = Column(String, nullable=False)   # セイ
+    given_name_kana = Column(String, nullable=False)    # メイ
+    birth_date = Column(String, nullable=False)         # 生年月日
+    certificate_number = Column(String, nullable=False) # 受給者証番号
+    gender = Column(String)                             # 性別（任意）
+    client_type = Column(String, nullable=False)        # "児"/"者"
+    staff_id = Column(Integer, ForeignKey("staffs.id")) # 担当スタッフ
+    status = Column(String, default="active")           # active/inactive
+    end_date = Column(String)                           # 終了日
+    notes = Column(Text)                                # 備考
+    deleted_at = Column(DateTime)                       # 論理削除用
 
-    # ※ 姓名・フリガナ・生年月日・受給者証番号はDBに保存しない（仮名化）
-    # リレーションシップ（JOINなしで関連データにアクセスできる）
+    # リレーションシップ
     staff = relationship("Staff", back_populates="clients")
     support_plans = relationship("SupportPlan", back_populates="client")
 ```
 
+**全テーブル共通:**
+- `deleted_at` カラムによる**論理削除**
+- DELETE APIは `deleted_at` に現在日時を設定
+- GET APIは `deleted_at IS NULL` でフィルタ
+
 **カラムを追加したいとき：**
 ```python
-# 例：メールアドレスを追加
-email = Column(String)
+# 1. models/*.py にカラム追加
+new_field = Column(String)
 
-# DBに反映するには（既存DBがある場合）
-# → Alembicでマイグレーション or DBファイルを削除して再起動
+# 2. schemas/*.py に追加
+new_field: Optional[str] = None
+
+# 3. Supabase SQL EditorでALTER TABLEを実行
+# ALTER TABLE clients ADD COLUMN new_field VARCHAR;
 ```
-
-**テーブルを作るには：**
-`main.py` の startup イベントで `Base.metadata.create_all(bind=engine)` が呼ばれるので、
-モデルを追加してサーバーを再起動すれば自動でテーブルが作成されます。
 
 ---
 
@@ -61,28 +75,33 @@ email = Column(String)
 ```python
 # schemas/client.py
 class ClientCreate(BaseModel):
-    family_name: str           # APIで受け取る（ハッシュ生成のため）
+    family_name: str
     given_name: str
-    birth_date: date
+    family_name_kana: str
+    given_name_kana: str
+    birth_date: str
     certificate_number: str
     client_type: str
-    # ... 他のフィールド
+    gender: Optional[str] = None
+    # ...
 
 class ClientUpdate(BaseModel):
-    gender: Optional[str] = None   # 更新可能なフィールドのみ
-    client_type: Optional[str] = None
-    # ... （個人情報フィールドは含まない）
+    family_name: Optional[str] = None   # 全部任意（部分更新したい）
+    given_name: Optional[str] = None
+    # ...
 
 class ClientResponse(BaseModel):
     id: int
-    pseudonym_hash: str        # ハッシュだけ返す（個人情報なし）
+    family_name: str
+    given_name: str
     client_type: str
-    created_at: Optional[datetime] = None
+    status: str
+    # ...
     model_config = {"from_attributes": True}  # SQLAlchemyオブジェクトを変換
 ```
 
 **なぜCreate/Update/Responseを分けるか：**
-- `Create`: 必須フィールドあり（nameなど）
+- `Create`: 必須フィールドあり（姓名など）
 - `Update`: 全部任意（部分更新したい）
 - `Response`: idやcreated_atを含む（DBが自動生成するフィールド）
 
@@ -93,34 +112,41 @@ class ClientResponse(BaseModel):
 ```python
 # routers/clients.py（パターン解説）
 
-# 一覧取得（クエリパラメータでフィルタ）
-@router.get("/", response_model=List[ClientResponse])
+# 一覧取得（認証必須 + クエリパラメータでフィルタ）
+@router.get("", response_model=List[ClientResponse])
 def list_clients(
-    name: Optional[str] = Query(None),   # ?name=田中 でフィルタ
+    client_type: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    _user = Depends(get_current_user),   # ← 認証チェック
 ):
-    stmt = select(Client)
-    if name:
-        stmt = stmt.where(Client.name.contains(name))
+    stmt = select(Client).where(Client.deleted_at.is_(None))
+    if client_type:
+        stmt = stmt.where(Client.client_type == client_type)
     return db.execute(stmt).scalars().all()
 
 # 新規作成
-@router.post("/", response_model=ClientResponse, status_code=201)
-def create_client(client_in: ClientCreate, db: Session = Depends(get_db)):
-    client = Client(**client_in.model_dump())   # Pydantic → SQLAlchemy
+@router.post("", response_model=ClientResponse, status_code=201)
+def create_client(
+    client_in: ClientCreate,
+    db: Session = Depends(get_db),
+    _user = Depends(require_admin),   # ← 管理者のみ
+):
+    client = Client(**client_in.model_dump())
     db.add(client)
     db.commit()
-    db.refresh(client)   # DBが生成したidを取得するため必要
+    db.refresh(client)
     return client
 
 # 更新（部分更新）
 @router.put("/{client_id}", response_model=ClientResponse)
 def update_client(client_id: int, client_in: ClientUpdate, db: Session = Depends(get_db)):
-    client = db.execute(select(Client).where(Client.id == client_id)).scalar_one_or_none()
+    client = db.execute(
+        select(Client).where(Client.id == client_id, Client.deleted_at.is_(None))
+    ).scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="利用者が見つかりません")
 
-    update_data = client_in.model_dump(exclude_unset=True)  # 送られてきたフィールドだけ
+    update_data = client_in.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(client, key, value)
     db.commit()
@@ -133,106 +159,74 @@ def update_client(client_id: int, client_in: ClientUpdate, db: Session = Depends
 
 ---
 
-## 5. AI統合の仕組み
-
-### ai/tools.py — Claudeに使わせるツールの定義
+## 5. 認証の仕組み
 
 ```python
-{
-    "name": "search_clients",        # ← tool_executor.py の関数名と一致させる
-    "description": "利用者を検索...", # ← Claudeがいつ使うか判断する説明文（重要！）
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "description": "名前（部分一致）"},
-        },
-        "required": [],   # 必須パラメータ
-    },
-}
-```
+# auth.py
+# JWT（JSON Web Token）をHttpOnly Cookieで管理
 
-**ツールを追加するには：**
-1. `ai/tools.py` の `get_tools()` リストに追加
-2. `ai/tool_executor.py` の `tool_map` に対応するメソッドを追加
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    """Cookieからトークンを取得 → ユーザー情報を返す"""
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401)
+    payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    user = db.query(Staff).filter(Staff.id == payload["sub"]).first()
+    return user
 
-### ai/tool_executor.py — ツールの実際の処理
-
-```python
-class ToolExecutor:
-    def execute(self, tool_name: str, tool_input: dict):
-        tool_map = {
-            "search_clients": self._search_clients,
-            # ↑ ツール名 → 実行するメソッド
-        }
-        handler = tool_map.get(tool_name)
-        return handler(**tool_input)   # Claudeが決めた引数で実行
-
-    def _search_clients(self, client_type=None, status="active"):
-        # 実際のDBクエリ（名前検索はDB側では不可 → フロントで対応）
-        stmt = select(Client)
-        if name:
-            stmt = stmt.where(Client.name.contains(name))
-        clients = self.db.execute(stmt).scalars().all()
-        return {"clients": [...], "total": len(clients)}
-        # ↑ JSON化できる dict で返す（必須）
-```
-
-### ai/client.py — Tool Use ループ
-
-Claudeがツールを使うとき、以下のループが発生します：
-
-```
-1. Claudeにメッセージを送る
-2. Claudeが "tool_use" ブロックを返す（stop_reason="tool_use"）
-3. ツールを実行する
-4. 結果をClaudeに送り返す (role="user", type="tool_result")
-5. Claudeが最終回答を返す (stop_reason="end_turn")
-6. ループ終了
-```
-
-コードでは `while True:` ループで実装されています：
-```python
-while True:
-    # Claudeにストリーミング送信
-    with self.client.messages.stream(...) as stream:
-        final_message = stream.get_final_message()
-        stop_reason = final_message.stop_reason
-
-    if stop_reason == "end_turn" or not tool_use_blocks:
-        break   # ← ここでループ終了
-
-    # ツールを実行して結果をmessagesに追加
-    # → ループの先頭に戻りClaudeに再送信
+def require_admin(user = Depends(get_current_user)):
+    """管理者のみアクセス可"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="管理者権限が必要です")
+    return user
 ```
 
 ---
 
-## 6. よくある修正パターン
+## 6. Excel転記の仕組み
+
+```
+backend/transcription/
+├── ocr.py           ← Claude Vision APIで画像 → フィールド抽出
+├── cell_mappings.py ← フィールド名 → セル座標のマッピング + 抽出プロンプト
+└── excel_writer.py  ← openpyxlでテンプレートに書き込み
+```
+
+**OCR処理（ocr.py）:**
+- 画像をbase64エンコードしてClaude Vision APIに送信
+- 1回のAPI呼び出しでOCR + フィールド構造化を同時に行う
+- 返されたfield_nameをCELL_MAPPINGSのキーと照合してバリデーション
+
+**テンプレート書き込み（excel_writer.py）:**
+- openpyxlでテンプレートを直接開いて値だけ書き込む（書式は保持）
+- テンプレートパス: Volume（`/data/template.xlsx`）優先、なければローカル
+
+---
+
+## 7. よくある修正パターン
 
 ### フィールドを追加する
 ```python
-# 1. models/client.py にカラム追加
+# 1. models/*.py にカラム追加
 new_field = Column(String)
 
-# 2. schemas/client.py に追加
+# 2. schemas/*.py に追加
 new_field: Optional[str] = None
 
-# 3. DBファイルを削除して再起動（or Alembicを使う）
-rm g_ranche.db
-uv run uvicorn main:app --reload
+# 3. Supabase SQL EditorでALTER TABLE
 ```
 
 ### 新しい検索条件を追加する
 ```python
 # routers/clients.py
-@router.get("/")
+@router.get("")
 def list_clients(
     name: Optional[str] = Query(None),
     new_filter: Optional[str] = Query(None),   # 追加
     db: Session = Depends(get_db),
 ):
     if new_filter:
-        conditions.append(Client.new_field == new_filter)  # 追加
+        stmt = stmt.where(Client.new_field == new_filter)
 ```
 
 ### AIのシステムプロンプトを変更する

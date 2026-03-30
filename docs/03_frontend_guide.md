@@ -6,7 +6,7 @@
 
 ```
 app/
-├── layout.tsx          → http://localhost:3000/ の共通レイアウト
+├── layout.tsx          → 共通レイアウト（サイドバー・認証チェック）
 ├── page.tsx            → http://localhost:3000/
 ├── dashboard/
 │   └── page.tsx        → http://localhost:3000/dashboard
@@ -14,6 +14,13 @@ app/
 │   ├── page.tsx        → http://localhost:3000/clients
 │   └── [id]/
 │       └── page.tsx    → http://localhost:3000/clients/1  （動的ルート）
+├── records/            → 支援記録
+├── schedules/          → スケジュール（カレンダー）
+├── monthly-tasks/      → 月間業務管理
+├── ai/                 → AIアシスタント
+├── transcription/      → Excel転記
+├── login/              → ログイン画面
+└── settings/           → 設定（ユーザー管理）
 ```
 
 ### Server Component vs Client Component
@@ -45,36 +52,35 @@ APIを叩いて動的に表示するページばかりなので。
 
 ```typescript
 // lib/api.ts
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
-// 普通のGET/POST
-export async function getClients(params?: {...}) {
-  const response = await fetch(`${API_URL}/api/clients?...`)
-  if (!response.ok) throw new Error('...')
-  return response.json()
-}
-
-// SSEストリーミング（AIチャット用）
-export async function streamAIChat(message: string, sessionId: string) {
-  const response = await fetch(`${API_URL}/api/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, session_id: sessionId }),
+async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    credentials: 'include',  // Cookie自動送信（認証用）
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
   })
-  return response   // ← bodyをそのまま返す（Readerで読む）
+
+  if (res.status === 401) {
+    window.location.href = '/login'  // セッション切れ → ログインへ
+    throw new Error('セッションが切れました')
+  }
+
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 ```
 
 **新しいAPIを追加するには：**
 ```typescript
-export async function createSomething(data: SomeType) {
-  const response = await fetch(`${API_URL}/api/something`, {
+export async function createSomething(data: SomeType): Promise<SomeResponse> {
+  return fetchAPI<SomeResponse>('/api/something', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!response.ok) throw new Error('エラーメッセージ')
-  return response.json() as Promise<SomeResponse>
 }
 ```
 
@@ -87,73 +93,70 @@ export async function createSomething(data: SomeType) {
 ```typescript
 export interface Client {
   id: number
-  pseudonym_hash: string    // 仮名化ハッシュ（個人情報はDBに保存しない）
+  family_name: string
+  given_name: string
+  family_name_kana: string
+  given_name_kana: string
+  birth_date: string
+  certificate_number: string
   gender: string
   client_type: string       // "児"/"者"
-  status: string
-  // ... バックエンドの ClientResponse と合わせる
+  status: string            // "active"/"inactive"
+  end_date?: string
+  notes?: string
 }
 ```
 
 **バックエンドにフィールドを追加したら、ここも追加してください。**
-**注意:** 個人情報（姓名・フリガナ・生年月日・受給者証番号）はDBに保存しないため、
-`Client` 型には含まれません。表示には `usePseudonym()` フックでマッピングを参照してください。
 
 ---
 
 ## 4. hooks/ — カスタムフック
 
-### useAIStream.ts の仕組み
+### SWRデータ取得フック
 
-SSEを受信して状態を管理するフックです。
+全ページのデータ取得はSWRフックに統一しています。SWRはキャッシュを管理するので、2回目以降のページ遷移では即表示されます。
 
 ```typescript
-export function useAIStream() {
-  const [messages, setMessages] = useState<AIMessage[]>([])
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [currentToolCall, setCurrentToolCall] = useState<ToolCall | null>(null)
+// hooks/useClients.ts
+export function useClients() {
+  const { data, error, isLoading, mutate } = useSWR<Client[]>('/api/clients', fetcher)
 
-  const sendMessage = async (message: string, sessionId: string) => {
-    // 1. ユーザーメッセージを追加
-    setMessages(prev => [...prev, { role: 'user', content: message }])
-
-    // 2. 空のアシスタントメッセージを追加（これに追記していく）
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }])
-
-    // 3. SSEを受信してリアルタイムに更新
-    const response = await streamAIChat(message, sessionId)
-    const reader = response.body.getReader()
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      // SSEの行を解析
-      const lines = decoder.decode(value).split('\n')
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const data = JSON.parse(line.slice(6))
-
-        // イベント種別で処理を分岐
-        if (data.type === 'text') {
-          // アシスタントメッセージに追記
-          setMessages(prev => { /* 最後のメッセージに content を追記 */ })
-        } else if (data.type === 'tool_call') {
-          setCurrentToolCall({ name: data.name, input: data.input })
-        } else if (data.type === 'done') {
-          setCurrentToolCall(null)
-        }
-      }
-    }
+  const addClient = async (data: Record<string, unknown>) => {
+    const newClient = await createClient(data)
+    await mutate()  // キャッシュを再検証
   }
 
-  return { messages, isStreaming, currentToolCall, sendMessage, clearMessages }
+  return { clients: data ?? [], loading: isLoading, error, addClient }
 }
+```
+
+### useAIStream.ts
+
+SSEを受信して状態を管理するフックです。AIチャットのリアルタイム表示に使います。
+
+---
+
+## 5. contexts/ — Reactコンテキスト
+
+### AuthContext.tsx — 認証状態管理
+- Cookie + `/api/auth/me` でログイン状態を確認
+- 30分無操作で自動ログアウト（`useAutoLock` フック）
+
+### ToastContext.tsx — トースト通知
+- `showToast(message, type)` で成功/エラーを画面右下に通知
+- 3秒で自動消去、×ボタンで即閉じ
+
+```typescript
+// 使い方
+const { showToast } = useToast()
+showToast('保存しました')              // 成功（緑）
+showToast('保存に失敗しました', 'error')  // エラー（赤）
 ```
 
 ---
 
-## 5. components/ — コンポーネント
+## 6. components/ — コンポーネント
 
 ### Sidebar.tsx
 
@@ -182,35 +185,16 @@ function ChatMessage({ message }: { message: AIMessage }) {
 }
 ```
 
-### ToolCallIndicator.tsx
-
-```tsx
-// ツール名を日本語に変換して表示
-const TOOL_NAMES: Record<string, string> = {
-  'search_clients': '利用者を検索',
-  'get_client_detail': '利用者情報を取得',
-  // ↑ ツールを追加したらここにも追加
-}
-```
-
 ---
 
-## 6. ページ実装パターン
+## 7. ページ実装パターン
 
-### データ一覧ページの基本パターン
+### データ一覧ページの基本パターン（SWR使用）
 
 ```tsx
 'use client'
 export default function SomePage() {
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    getItems()
-      .then(setItems)
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+  const { items, loading } = useItems()  // SWRフック
 
   if (loading) return <div>読み込み中...</div>
 
@@ -226,25 +210,21 @@ export default function SomePage() {
 
 ```tsx
 // app/clients/[id]/page.tsx
-export default function ClientDetailPage({
-  params
-}: {
-  params: { id: string }  // URLの [id] 部分が入る
-}) {
-  const clientId = parseInt(params.id)
-  // clientId でAPIを叩く
+export default function ClientDetailPage() {
+  const params = useParams()
+  const id = Number(params.id)
+  const { data: client } = useSWR<Client>(`/api/clients/${id}`, fetcher)
+  // ...
 }
 ```
 
 ---
 
-## 7. shadcn/ui コンポーネントの使い方
+## 8. shadcn/ui コンポーネントの使い方
 
 ```tsx
-// インポート
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
 
 // 使用例
@@ -252,36 +232,26 @@ import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
   保存
 </Button>
 
-<Badge variant="outline" className="bg-green-100 text-green-800">
-  アクティブ
-</Badge>
-
 // 新しいコンポーネントを追加するには
 // npx shadcn@latest add [コンポーネント名]
-// 例: npx shadcn@latest add table
 ```
 
 ---
 
-## 8. Tailwind CSS のカラーパレット
-
-このプロジェクトで使っているカラー：
+## 9. Tailwind CSS のカラーパレット
 
 | 用途 | クラス |
 |------|--------|
-| プライマリ | `teal-600` (#0d9488) |
+| プライマリ | `teal-600` |
 | サイドバー背景 | `slate-900` |
-| サイドバーテキスト | `slate-400` |
-| アクティブメニュー | `teal-600` |
-| 背景 | `slate-50` |
+| 背景 | `slate-50` / `gray-50` |
 | カード | `white` |
-| 身体障害バッジ | `blue-100 / blue-800` |
-| 精神障害バッジ | `purple-100 / purple-800` |
-| 知的障害バッジ | `green-100 / green-800` |
+| 児バッジ | `pink-100 / pink-700` |
+| 者バッジ | `sky-100 / sky-700` |
 
 ---
 
-## 9. よくある修正パターン
+## 10. よくある修正パターン
 
 ### 新しいページを追加する
 
@@ -308,15 +278,11 @@ import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
 ### カードに情報を追加する
 
 ```tsx
-// ClientCard.tsx（仮名化対応）
-const { resolve } = usePseudonym();
-const personal = resolve(client.pseudonym_hash);
-
+// ClientCard.tsx
 <Card>
   <CardContent>
-    <p>{personal ? `${personal.family_name} ${personal.given_name}` : '仮名利用者'}</p>
+    <p>{client.family_name} {client.given_name}</p>
     <p>{client.client_type}</p>
-    {/* 個人情報はマッピングから取得する */}
   </CardContent>
 </Card>
 ```
