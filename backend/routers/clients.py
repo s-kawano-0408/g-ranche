@@ -20,7 +20,7 @@ def get_client_stats(db: Session = Depends(get_db), _user=Depends(get_current_us
             func.count(Client.id).label('total'),
             func.count(case((Client.client_type == '児', 1))).label('child'),
             func.count(case((Client.client_type == '者', 1))).label('adult'),
-        ).where(Client.deleted_at.is_(None))
+        ).where(Client.deleted_at.is_(None), Client.status == 'active')
     ).one()
     return {"total": result.total, "child": result.child, "adult": result.adult}
 
