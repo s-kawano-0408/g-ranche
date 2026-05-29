@@ -67,7 +67,7 @@ class ToolExecutor:
         client_type: Optional[str] = None,
         status: Optional[str] = "active",
     ) -> Dict[str, Any]:
-        stmt = select(Client)
+        stmt = select(Client).where(Client.deleted_at.is_(None))
         conditions = []
 
         if client_type:
@@ -86,7 +86,7 @@ class ToolExecutor:
 
     def _get_client_detail(self, client_id: int) -> Dict[str, Any]:
         client = self.db.execute(
-            select(Client).where(Client.id == client_id)
+            select(Client).where(Client.id == client_id, Client.deleted_at.is_(None))
         ).scalar_one_or_none()
 
         if not client:
@@ -95,7 +95,7 @@ class ToolExecutor:
         # Get latest support plan
         latest_plan = self.db.execute(
             select(SupportPlan)
-            .where(SupportPlan.client_id == client_id)
+            .where(SupportPlan.client_id == client_id, SupportPlan.deleted_at.is_(None))
             .order_by(SupportPlan.plan_date.desc())
             .limit(1)
         ).scalar_one_or_none()
@@ -116,7 +116,7 @@ class ToolExecutor:
         # Get last 5 case records
         records = self.db.execute(
             select(CaseRecord)
-            .where(CaseRecord.client_id == client_id)
+            .where(CaseRecord.client_id == client_id, CaseRecord.deleted_at.is_(None))
             .order_by(CaseRecord.record_date.desc())
             .limit(5)
         ).scalars().all()
@@ -169,6 +169,7 @@ class ToolExecutor:
             and_(
                 Schedule.start_datetime >= start_dt,
                 Schedule.start_datetime <= end_dt,
+                Schedule.deleted_at.is_(None),
             )
         )
 
@@ -212,7 +213,7 @@ class ToolExecutor:
         record_type: Optional[str] = None,
         limit: int = 10,
     ) -> Dict[str, Any]:
-        stmt = select(CaseRecord)
+        stmt = select(CaseRecord).where(CaseRecord.deleted_at.is_(None))
         conditions = []
 
         if client_id is not None:
@@ -346,6 +347,8 @@ class ToolExecutor:
             .join(SupportPlan, SupportPlan.client_id == Client.id)
             .where(
                 and_(
+                    Client.deleted_at.is_(None),
+                    SupportPlan.deleted_at.is_(None),
                     Client.status == "active",
                     SupportPlan.status == "active",
                     SupportPlan.next_monitoring_date >= today,
@@ -383,16 +386,19 @@ class ToolExecutor:
         today_end = datetime.combine(today, datetime.max.time())
 
         total_clients = self.db.execute(
-            select(func.count(Client.id))
+            select(func.count(Client.id)).where(Client.deleted_at.is_(None))
         ).scalar()
 
         active_clients = self.db.execute(
-            select(func.count(Client.id)).where(Client.status == "active")
+            select(func.count(Client.id)).where(
+                Client.deleted_at.is_(None), Client.status == "active"
+            )
         ).scalar()
 
         schedules_today = self.db.execute(
             select(func.count(Schedule.id)).where(
                 and_(
+                    Schedule.deleted_at.is_(None),
                     Schedule.start_datetime >= today_start,
                     Schedule.start_datetime <= today_end,
                     Schedule.status == "scheduled",
@@ -405,6 +411,7 @@ class ToolExecutor:
         monitoring_due = self.db.execute(
             select(func.count(SupportPlan.id)).where(
                 and_(
+                    SupportPlan.deleted_at.is_(None),
                     SupportPlan.status == "active",
                     SupportPlan.next_monitoring_date >= today,
                     SupportPlan.next_monitoring_date <= deadline,
@@ -416,7 +423,10 @@ class ToolExecutor:
         week_ago = today_start - timedelta(days=7)
         recent_records = self.db.execute(
             select(func.count(CaseRecord.id)).where(
-                CaseRecord.record_date >= week_ago
+                and_(
+                    CaseRecord.deleted_at.is_(None),
+                    CaseRecord.record_date >= week_ago,
+                )
             )
         ).scalar()
 
