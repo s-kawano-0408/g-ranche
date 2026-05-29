@@ -100,4 +100,7 @@ fly deploy
 | APIを呼ぶ関数を変更 | `frontend/src/lib/api.ts` |
 | TypeScriptの型を変更 | `frontend/src/types/index.ts` |
 | サンプルデータを変更 | `backend/seed.py` |
-| 認証・セッション管理 | `backend/auth.py` + `frontend/src/contexts/AuthContext.tsx` |
+| 認証・セッション管理 | `backend/auth.py` + `backend/routers/auth.py` + `frontend/src/contexts/AuthContext.tsx` |
+| ログインアカウント追加 | `backend/seed.py`（admin × 1, staff × 2）または `models/user.py` |
+| CSP / セキュリティヘッダー | `frontend/src/middleware.ts` + `frontend/next.config.ts` |
+| Excel テンプレート構造を確認 | `backend/transcription/dump_template.py` |

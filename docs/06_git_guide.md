@@ -4,7 +4,7 @@
 
 - GitHub リポジトリ: public（`g-ranche`）
 - ブランチ: `main`（本番）、`develop`（開発）
-- 開発フロー: `develop` で作業 → `main` にマージ → デプロイ
+- 開発フロー: `develop` で作業 → `main` にマージ → `fly deploy`
 
 ---
 
@@ -27,7 +27,7 @@ git status
 
 # 2. セーブ対象に追加（ステージング）
 git add ファイル名
-git add .        # 全ファイルまとめて追加
+git add .        # 全ファイルまとめて追加（注意: .env など機密が混ざらないか確認）
 
 # 3. セーブする（コミット）
 git commit -m "何をしたか分かるメッセージ"
@@ -108,21 +108,30 @@ docs: ドキュメントを最新の状態に更新
 
 ## .gitignore で管理対象外にしているもの
 
+`/.gitignore` から抜粋:
+
 ```
 backend/.venv/                → Pythonの仮想環境（uv が管理する）
-*.db                          → データベースファイル
-.env                          → APIキー・パスワード（絶対にGitHubに上げない）
+__pycache__/                  → Pythonのキャッシュ
+*.db, *.sqlite, *.sqlite3     → ローカルDBファイル
+.env, .env.local, .env.*.local → 機密情報（APIキー、DB接続文字列）
+.env.production               → 本番環境変数（Oracle向けに使用）
 node_modules/                 → フロントエンドの依存パッケージ
-frontend/.next/               → Next.js のビルド結果
-.DS_Store                     → macOSが作るゴミファイル
-backend/templates/*.xlsx      → Excelテンプレート（事業所名が含まれるため）
-backend/templates/*.jpg,*.png → テスト用画像ファイル
+frontend/.next/, frontend/out/ → Next.js のビルド成果物
+.DS_Store, Thumbs.db          → OSが作るゴミファイル
+.vscode/                      → エディタの個人設定
+pgdata/                       → ローカル Postgres のデータ
+.claude/mcp.json              → Claude Code のMCP設定（パスワードを含む）
+backend/templates/*.xlsx      → Excelテンプレート（事業所名を含む）
+backend/templates/*.jpg/png   → 書類画像（個人情報を含む）
+interview-notes/              → 個人メモ
 ```
 
 **なぜ .env を除外するのか：**
-`.env` にはAnthropicのAPIキーやDB接続文字列が書かれています。
-GitHubに上げると世界中から見えてしまい、不正利用される危険があります。
+`.env` には Anthropic の API キーや DB 接続文字列、`SECRET_KEY` が書かれています。
+GitHub に上げると世界中から見えてしまい、不正利用される危険があります。
 
-**なぜテンプレートを除外するのか：**
-Excelテンプレートには事業所名など固有情報が含まれており、リポジトリがpublicのため。
-デプロイ先（Fly.io）にはVolumeに手動で配置します。
+**なぜテンプレート・画像を除外するのか：**
+Excel テンプレートには事業所名など固有情報、書類画像には要配慮個人情報が含まれており、
+リポジトリが public のため絶対にコミットしてはいけません。
+デプロイ先（Fly.io）には Volume に手動で配置します。

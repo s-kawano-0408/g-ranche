@@ -6,21 +6,20 @@
 
 ```
 app/
-├── layout.tsx          → 共通レイアウト（サイドバー・認証チェック）
+├── layout.tsx          → 共通レイアウト（AuthProvider・ToastProvider・サイドバー）
 ├── page.tsx            → http://localhost:3000/
-├── dashboard/
-│   └── page.tsx        → http://localhost:3000/dashboard
+├── dashboard/          → ダッシュボード
 ├── clients/
-│   ├── page.tsx        → http://localhost:3000/clients
-│   └── [id]/
-│       └── page.tsx    → http://localhost:3000/clients/1  （動的ルート）
+│   ├── page.tsx        → 利用者一覧
+│   └── [id]/page.tsx   → 利用者詳細（動的ルート）
 ├── records/            → 支援記録
 ├── schedules/          → スケジュール（カレンダー）
 ├── monthly-tasks/      → 月間業務管理
 ├── ai/                 → AIアシスタント
 ├── transcription/      → Excel転記
 ├── login/              → ログイン画面
-└── settings/           → 設定（ユーザー管理）
+├── settings/           → 設定（ユーザー管理、管理者のみ）
+└── api/transcription/  → OCR/Excel生成用 Route Handler（90秒タイムアウト）
 ```
 
 ### Server Component vs Client Component
@@ -84,11 +83,17 @@ export async function createSomething(data: SomeType): Promise<SomeResponse> {
 }
 ```
 
+### Excel転記だけ Route Handler を経由する
+
+OCR と Excel 生成は処理が長いため、`frontend/src/app/api/transcription/{ocr,generate}/route.ts`
+で 90 秒タイムアウトの Route Handler を挟んでバックエンドに転送しています。
+それ以外の API は Next.js の `rewrites` または Caddy が直接バックエンドに流します。
+
 ---
 
 ## 3. types/index.ts — 型定義
 
-バックエンドのPydanticスキーマと対応させます。
+バックエンドのPydanticスキーマと対応させます（日付はISO文字列で受け渡し）。
 
 ```typescript
 export interface Client {
@@ -97,13 +102,14 @@ export interface Client {
   given_name: string
   family_name_kana: string
   given_name_kana: string
-  birth_date: string
+  birth_date: string        // ISO 日付文字列
   certificate_number: string
   gender: string
   client_type: string       // "児"/"者"
+  staff_id: number
   status: string            // "active"/"inactive"
-  end_date?: string
-  notes?: string
+  end_date: string
+  notes: string
 }
 ```
 
@@ -113,42 +119,56 @@ export interface Client {
 
 ## 4. hooks/ — カスタムフック
 
-### SWRデータ取得フック
+### SWR データ取得フック
 
-全ページのデータ取得はSWRフックに統一しています。SWRはキャッシュを管理するので、2回目以降のページ遷移では即表示されます。
+全ページのデータ取得は SWR ベースのフックに統一しています。
+2 回目以降のページ遷移はキャッシュから即表示されます。
 
 ```typescript
 // hooks/useClients.ts
 export function useClients() {
-  const { data, error, isLoading, mutate } = useSWR<Client[]>('/api/clients', fetcher)
+  const { data: clients = [], error, isLoading: loading, mutate } = useSWR<Client[]>(
+    '/api/clients',
+    fetcher,
+  )
 
-  const addClient = async (data: Record<string, unknown>) => {
+  const addClient = useCallback(async (data) => {
     const newClient = await createClient(data)
-    await mutate()  // キャッシュを再検証
-  }
+    await mutate([...clients, newClient], false)  // 楽観更新
+    return newClient
+  }, [clients, mutate])
 
-  return { clients: data ?? [], loading: isLoading, error, addClient }
+  return { clients, loading, error, refetch: mutate, addClient, /* editClient, removeClient */ }
 }
 ```
 
-### useAIStream.ts
+`useRecords` / `useSchedules` も同じパターン。`useSchedules` は表示月 ±1 ヶ月だけ取りに行くため、日付レンジを引数で渡します。
 
-SSEを受信して状態を管理するフックです。AIチャットのリアルタイム表示に使います。
+### useAIStream.ts
+SSE を受信して状態を管理するフック。AI チャットのリアルタイム表示に使います。
+`text` / `tool_call_start` / `tool_call` / `tool_result` / `done` / `error` の各イベント型を処理します。
+
+### useAutoLock.ts
+30 分間操作がなければ自動でログアウトするフック。マウス・キーボード・タッチイベントでタイマーリセット。
 
 ---
 
 ## 5. contexts/ — Reactコンテキスト
 
 ### AuthContext.tsx — 認証状態管理
-- Cookie + `/api/auth/me` でログイン状態を確認
-- 30分無操作で自動ログアウト（`useAutoLock` フック）
+- `/api/auth/me` を呼んでログイン状態を確認
+- ログイン直後に呼ぶ `refreshUser` を公開
+- `useAutoLock` を内部で使い、30 分無操作で自動ログアウト
+
+```typescript
+const { user, loading, logout, refreshUser } = useAuth()
+```
 
 ### ToastContext.tsx — トースト通知
 - `showToast(message, type)` で成功/エラーを画面右下に通知
-- 3秒で自動消去、×ボタンで即閉じ
+- 3 秒で自動消去、×ボタンで即閉じ
 
 ```typescript
-// 使い方
 const { showToast } = useToast()
 showToast('保存しました')              // 成功（緑）
 showToast('保存に失敗しました', 'error')  // エラー（赤）
@@ -158,16 +178,35 @@ showToast('保存に失敗しました', 'error')  // エラー（赤）
 
 ## 6. components/ — コンポーネント
 
+```
+components/
+├── ai/             ChatMessage / ToolCallIndicator / DocumentPanel
+├── clients/        ClientCard / ClientCombobox / ClientForm / ClientSearch
+├── dashboard/      MonitoringAlert / StatsCard / TodaySchedule
+├── layout/         Sidebar / Header / LayoutWrapper
+├── records/        RecordForm / RecordTimeline
+├── schedules/      CalendarView / ScheduleForm
+├── transcription/  ImageUploader / SheetSelector / FieldPreview
+└── ui/             shadcn/ui コンポーネント群
+```
+
 ### Sidebar.tsx
 
 ```tsx
-// ナビゲーションリンクの定義
 const navItems = [
   { href: '/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
   { href: '/clients', label: '利用者管理', icon: Users },
-  // ↑ ここに追加するだけで新しいページへのリンクが増える
+  { href: '/monthly-tasks', label: '月間業務管理', icon: ClipboardList },
+  { href: '/schedules', label: 'スケジュール', icon: Calendar },
+  { href: '/records', label: '支援記録', icon: FileText },
+  { href: '/ai', label: 'AIアシスタント', icon: Bot },
+  { href: '/transcription', label: 'Excel転記', icon: FileSpreadsheet },
 ]
+// ↑ navItems に追加するだけで新しいページへのリンクが増える
+// 「設定」リンクは user.role === 'admin' のときだけ表示
 ```
+
+レイアウトはデスクトップで固定サイドバー、モバイルでハンバーガー＋ドロワー（`lg:` で切替）。
 
 ### ChatMessage.tsx
 
@@ -194,13 +233,13 @@ function ChatMessage({ message }: { message: AIMessage }) {
 ```tsx
 'use client'
 export default function SomePage() {
-  const { items, loading } = useItems()  // SWRフック
+  const { clients, loading } = useClients()  // SWR フック
 
   if (loading) return <div>読み込み中...</div>
 
   return (
     <div>
-      {items.map(item => <ItemCard key={item.id} item={item} />)}
+      {clients.map(c => <ClientCard key={c.id} client={c} />)}
     </div>
   )
 }
@@ -249,9 +288,21 @@ import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
 | 児バッジ | `pink-100 / pink-700` |
 | 者バッジ | `sky-100 / sky-700` |
 
+月間業務管理のタスク種別ごとの色は `app/monthly-tasks/page.tsx` の `TASK_COLORS` に集約。
+
 ---
 
-## 10. よくある修正パターン
+## 10. middleware.ts と next.config.ts
+
+- **middleware.ts** … 全リクエストに CSP ヘッダーを付与（`unsafe-inline`/`unsafe-eval` を含む緩めの設定。Oracle 移行時に nonce 化予定）
+- **next.config.ts**
+  - `skipTrailingSlashRedirect: true` で 308 リダイレクトを抑止
+  - ローカル開発時のみ `/api/*` を `BACKEND_URL`（既定 `http://localhost:8000`）に rewrite
+  - `X-Frame-Options: DENY` / `X-Content-Type-Options: nosniff` / `Referrer-Policy: strict-origin-when-cross-origin` / `Strict-Transport-Security` をヘッダーで配布
+
+---
+
+## 11. よくある修正パターン
 
 ### 新しいページを追加する
 

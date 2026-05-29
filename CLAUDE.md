@@ -114,7 +114,7 @@ g-ranche/
         │   ├── records/     # 支援記録
         │   ├── ai/          # AIアシスタント
         │   └── transcription/ # Excel転記
-        ├── middleware.ts     # nonceベースCSPヘッダー生成
+        ├── middleware.ts     # CSPヘッダー生成（unsafe-inline/unsafe-eval を許容する緩めの設定）
         ├── contexts/        # Reactコンテキスト
         │   └── AuthContext.tsx      # 認証状態管理（Cookie + 自動ロック）
         ├── components/      # UIコンポーネント
@@ -142,11 +142,13 @@ g-ranche/
 - `GET /api/monthly-tasks` - 月間業務タスク一覧（year, month, client_id でフィルタ可）
 - `PUT /api/monthly-tasks` - 月間業務タスク登録・更新（upsert）
 - `DELETE /api/monthly-tasks` - 月間業務タスク削除（client_id, year, month 指定）
-- `POST /api/auth/login` - ログイン（HttpOnly Cookie をセット）
+- `GET /api/clients/stats` - 利用者統計（active な総数・児・者）
+- `POST /api/auth/login` - ログイン（HttpOnly Cookie をセット、5/分・30/時のレートリミット）
 - `POST /api/auth/logout` - ログアウト（Cookie を削除）
 - `GET /api/auth/me` - ログイン中のユーザー情報取得
 - `GET /api/auth/users` - ユーザー一覧（管理者のみ）
 - `PUT /api/auth/users/{id}/password` - パスワード変更（管理者のみ）
+- `PUT /api/auth/users/{id}/deactivate` - アカウント無効化（管理者のみ）
 - `POST /api/ai/chat` - AIチャット（SSEストリーミング + Tool Use）
 - `POST /api/ai/generate-plan` - 支援計画書生成
 - `POST /api/ai/summarize-record` - 支援記録要約
@@ -188,7 +190,7 @@ g-ranche/
 - **OCR**: Claude Vision API（claude-sonnet-4-6）で画像から直接フィールド抽出・構造化（1回のAPI呼び出しで完結）
 - **Excel書き込み**: openpyxlでテンプレートの書式を保持したまま書き込み
 - **対応シート**: 別紙１、1_1計画案（Phase 1）
-- **テンプレート**: `backend/templates/(者）★原本.xlsx`（事業所名が含まれるためGit管理外。Fly.ioには手動配置）
+- **テンプレート**: `backend/templates/template.xlsx`（事業所名が含まれるためGit管理外。Fly.ioでは Volume `/data/template.xlsx` 優先、なければローカルにフォールバック）
 - **プロキシ**: Next.js Route Handlerで90秒タイムアウト設定（長時間OCR処理対応）
 - **セキュリティ**: Anthropic APIはデータをモデル訓練に使用しない（要配慮個人情報の保護）
 
@@ -199,21 +201,22 @@ g-ranche/
 - **Multi-turn**: `ai_conversations`テーブルで会話履歴を永続化
 
 ## データベース (PostgreSQL on Supabase)
-- 全テーブル共通: `deleted_at` カラムによる**論理削除**（DELETE APIは `deleted_at` を設定、GETは `deleted_at IS NULL` でフィルタ）
-- `staffs` - スタッフ情報
+- `users` 以外のテーブルは `deleted_at` カラムによる**論理削除**（DELETE APIは `deleted_at` を設定、GETは `deleted_at IS NULL` でフィルタ）
+- `users` - ログインアカウント（email, password_hash, name, role, is_active）。認証はこのテーブルを参照
+- `staffs` - 業務上のスタッフ情報（担当者一覧）。`users` とは別物
 - `clients` - 利用者情報
   - family_name, given_name（姓・名）必須
   - family_name_kana, given_name_kana（フリガナ）必須
-  - birth_date（生年月日）必須
+  - birth_date（生年月日、Date型）必須
   - certificate_number（受給者証番号）必須
   - gender（性別）任意
   - client_type（"児"/"者"）必須
-  - staff_id, status（active/inactive）, end_date, notes, deleted_at
+  - staff_id, status（active/inactive）, end_date（Date型）, notes, deleted_at
 - `support_plans` - 個別支援計画書
 - `case_records` - 支援記録
-- `schedules` - スケジュール
-- `monthly_tasks` - 月間業務タスク（client_id, year, month, task_type）
-- `ai_conversations` - AIチャット履歴
+- `schedules` - スケジュール（client_id は nullable）
+- `monthly_tasks` - 月間業務タスク（client_id + year + month でユニーク制約、task_type）
+- `ai_conversations` - AIチャット履歴（session_id、JSON messages）
 
 ## 認証・セキュリティ
 
@@ -222,16 +225,21 @@ g-ranche/
 - ログイン時にサーバーが Cookie をセット → ブラウザが自動送信
 - JavaScript から Cookie にアクセスできない（XSS でトークン窃取不可）
 - Cookie 設定: `httponly=True`, `samesite=lax`, `secure=環境依存`（本番は `True`）
-- トークン有効期限: 8時間
+- トークン有効期限: 8時間（残り2時間以下になったら次のリクエストで自動更新）
+- 認証対象テーブルは `users`（email + bcrypt ハッシュ化されたパスワード）
+- ログインAPIは `slowapi` で 5回/分・30回/時 にレート制限
 
 ### セキュリティヘッダー
-- **CSP**（`middleware.ts`で設定）:
-  - ローカル/本番共通: `default-src 'self'`, `connect-src 'self'`, `img-src 'self' data: blob:`
-  - デモ環境（Fly.io）: `script-src 'self' 'unsafe-inline' 'unsafe-eval'`（Next.js本番ビルドとの互換性のため緩和中）
-  - 本番環境（Oracle移行時）: nonce ベースに戻す予定
-- **X-Frame-Options**: DENY（クリックジャッキング防止）
+- **CSP**（`frontend/src/middleware.ts` で設定。現状は緩めの固定値）:
+  - `default-src 'self'`
+  - `script-src 'self' 'unsafe-inline' 'unsafe-eval'`（Next.js本番ビルドとの互換性のため）
+  - `style-src 'self' 'unsafe-inline'`
+  - `img-src 'self' data: blob:` / `font-src 'self'` / `connect-src 'self'`
+  - Oracle 移行時に nonce ベースへ戻す想定
+- **X-Frame-Options**: DENY（クリックジャッキング防止、`next.config.ts` で設定）
 - **X-Content-Type-Options**: nosniff
 - **Referrer-Policy**: strict-origin-when-cross-origin
+- **Strict-Transport-Security**: max-age=31536000; includeSubDomains
 
 ### 自動ロック
 - 30分間操作がなければ自動ログアウト（`useAutoLock` フック）
@@ -241,8 +249,14 @@ g-ranche/
 - `ALLOWED_ORIGINS` 環境変数で制御（デフォルト: `http://localhost:3000`）
 - `credentials: include` を使うため、ワイルドカード `*` は使用不可
 
+### 監査ログ
+- `main.py` のミドルウェアで `/api/` 配下のリクエストを `audit` ロガーに記録
+- 形式: `METHOD PATH user=<email> ip=<client_ip> status=<code>`
+- ユーザー名はCookieのJWTから抽出（未認証は `anonymous`）
+
 ### 既知の制約
 - 本番デプロイ時は `ENVIRONMENT=production` を設定すること（Cookie の `secure` フラグ）
+- `SECRET_KEY` 環境変数は本番では必須。未設定だと起動時にエラー
 
 ## デプロイ
 
