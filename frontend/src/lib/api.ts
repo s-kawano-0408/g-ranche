@@ -29,6 +29,11 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(error || `API error: ${res.status}`);
   }
 
+  // 204 No Content（DELETE等）は空ボディなので res.json() を呼ばない
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json();
 }
 
@@ -59,10 +64,7 @@ export async function updateClient(
 }
 
 export async function deleteClient(id: number): Promise<void> {
-  await fetch(`${BASE_URL}/api/clients/${id}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
+  await fetchAPI<void>(`/api/clients/${id}`, { method: "DELETE" });
 }
 
 // Support Plans
@@ -108,10 +110,7 @@ export async function updateCaseRecord(
 }
 
 export async function deleteCaseRecord(id: number): Promise<void> {
-  await fetch(`${BASE_URL}/api/records/${id}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
+  await fetchAPI<void>(`/api/records/${id}`, { method: "DELETE" });
 }
 
 // Schedules
@@ -123,9 +122,9 @@ export async function getSchedules(params?: {
   const query = params
     ? "?" +
       new URLSearchParams(
-        Object.fromEntries(
-          Object.entries(params).map(([k, v]) => [k, String(v)]),
-        ),
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)]),
       ).toString()
     : "";
   return fetchAPI<Schedule[]>(`/api/schedules${query}`);
@@ -155,10 +154,7 @@ export async function updateSchedule(
 }
 
 export async function deleteSchedule(id: number): Promise<void> {
-  await fetch(`${BASE_URL}/api/schedules/${id}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
+  await fetchAPI<void>(`/api/schedules/${id}`, { method: "DELETE" });
 }
 
 // Monthly Tasks
@@ -184,12 +180,9 @@ export async function deleteMonthlyTask(
   year: number,
   month: number,
 ): Promise<void> {
-  await fetch(
-    `${BASE_URL}/api/monthly-tasks?client_id=${clientId}&year=${year}&month=${month}`,
-    {
-      method: "DELETE",
-      credentials: "include",
-    },
+  await fetchAPI<void>(
+    `/api/monthly-tasks?client_id=${clientId}&year=${year}&month=${month}`,
+    { method: "DELETE" },
   );
 }
 
@@ -197,8 +190,8 @@ export async function deleteMonthlyTask(
 export async function streamAIChat(
   message: string,
   sessionId: string,
-  conversationHistory: { role: string; content: string }[],
 ): Promise<Response> {
+  // 会話履歴はバックエンドが session_id を元に DB から復元するため送らない
   return fetch(`${BASE_URL}/api/ai/chat`, {
     method: "POST",
     credentials: "include",
@@ -206,7 +199,6 @@ export async function streamAIChat(
     body: JSON.stringify({
       message,
       session_id: sessionId,
-      conversation_history: conversationHistory,
     }),
   });
 }

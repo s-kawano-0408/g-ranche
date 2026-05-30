@@ -29,8 +29,7 @@ export function useAIStream(): UseAIStreamReturn {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      const history = messages.map(m => ({ role: m.role, content: m.content }));
-      const response = await streamAIChat(message, sessionId, history);
+      const response = await streamAIChat(message, sessionId);
 
       if (!response.body) throw new Error('No response body');
 
@@ -132,7 +131,7 @@ export function useAIStream(): UseAIStreamReturn {
       setIsStreaming(false);
       setCurrentToolCall(null);
     }
-  }, [messages, isStreaming]);
+  }, [isStreaming]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
