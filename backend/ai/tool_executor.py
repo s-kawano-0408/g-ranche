@@ -1,7 +1,7 @@
 from datetime import datetime, date, timedelta
 from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, or_, func
 
 from models.client import Client
 from models.staff import Staff
@@ -64,12 +64,24 @@ class ToolExecutor:
 
     def _search_clients(
         self,
+        name: Optional[str] = None,
         client_type: Optional[str] = None,
         status: Optional[str] = "active",
     ) -> Dict[str, Any]:
         stmt = select(Client).where(Client.deleted_at.is_(None))
         conditions = []
 
+        if name:
+            pattern = f"%{name}%"
+            conditions.append(
+                or_(
+                    Client.family_name.ilike(pattern),
+                    Client.given_name.ilike(pattern),
+                    Client.family_name_kana.ilike(pattern),
+                    Client.given_name_kana.ilike(pattern),
+                    (Client.family_name + Client.given_name).ilike(pattern),
+                )
+            )
         if client_type:
             conditions.append(Client.client_type == client_type)
         if status:

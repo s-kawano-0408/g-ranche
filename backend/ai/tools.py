@@ -6,17 +6,17 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "search_clients",
-            "description": "利用者を名前、障害種別、状態で検索します。複数の条件を組み合わせて検索できます。",
+            "description": "利用者を名前、区分（児/者）、状態で検索します。複数の条件を組み合わせて検索できます。",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "利用者の名前（部分一致で検索）",
+                        "description": "利用者の名前（姓・名・フリガナに部分一致で検索）",
                     },
-                    "disability_type": {
+                    "client_type": {
                         "type": "string",
-                        "description": "障害種別。例：'身体障害'、'知的障害'、'精神障害'、'発達障害'、'難病'",
+                        "description": "利用者区分。'児'（児童）または'者'（成人）",
                     },
                     "status": {
                         "type": "string",
