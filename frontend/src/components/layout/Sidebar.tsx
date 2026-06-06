@@ -2,25 +2,41 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut, Settings, Menu, X, FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, FileText, Bot, ClipboardList, LogOut, Settings, Menu, X, FileSpreadsheet, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useState, useEffect } from 'react';
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  flag?: 'ai' | 'transcription';
+};
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
   { href: '/clients', label: '利用者管理', icon: Users },
   { href: '/monthly-tasks', label: '月間業務管理', icon: ClipboardList },
   { href: '/schedules', label: 'スケジュール', icon: Calendar },
   { href: '/records', label: '支援記録', icon: FileText },
-  { href: '/ai', label: 'AIアシスタント', icon: Bot },
-  { href: '/transcription', label: 'Excel転記', icon: FileSpreadsheet },
+  { href: '/ai', label: 'AIアシスタント', icon: Bot, flag: 'ai' },
+  { href: '/transcription', label: 'Excel転記', icon: FileSpreadsheet, flag: 'transcription' },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { enableAI, enableTranscription } = useFeatureFlags();
   const [open, setOpen] = useState(false);
+
+  // フラグがオフの機能はメニューから除外する
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.flag === 'ai') return enableAI;
+    if (item.flag === 'transcription') return enableTranscription;
+    return true;
+  });
 
   // ページ遷移時にメニューを閉じる
   useEffect(() => {
@@ -55,7 +71,7 @@ export default function Sidebar() {
         </button>
       </div>
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {visibleNavItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(href + '/');
           return (
             <Link

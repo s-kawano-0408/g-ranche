@@ -31,6 +31,12 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "false").lower() in ("1", "true", "yes")
+
+ENABLE_AI = _env_flag("ENABLE_AI")
+ENABLE_TRANSCRIPTION = _env_flag("ENABLE_TRANSCRIPTION")
+
 # レートリミット設定（IPアドレスで制限）
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -51,10 +57,12 @@ app.include_router(clients.router, prefix="/api/clients", tags=["利用者管理
 app.include_router(support_plans.router, prefix="/api/support-plans", tags=["支援計画"])
 app.include_router(case_records.router, prefix="/api/records", tags=["支援記録"])
 app.include_router(schedules.router, prefix="/api/schedules", tags=["スケジュール"])
-app.include_router(ai.router, prefix="/api/ai", tags=["AI アシスタント"])
+if ENABLE_AI:
+    app.include_router(ai.router, prefix="/api/ai", tags=["AI アシスタント"])
 app.include_router(monthly_tasks.router, prefix="/api/monthly-tasks", tags=["月間業務管理"])
 app.include_router(auth.router, prefix="/api/auth", tags=["認証"])
-app.include_router(transcription.router, prefix="/api/transcription", tags=["Excel転記"])
+if ENABLE_TRANSCRIPTION:
+    app.include_router(transcription.router, prefix="/api/transcription", tags=["Excel転記"])
 
 
 # 監査ログ設定
@@ -95,4 +103,9 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok", "message": "福祉支援管理システム APIは正常に動作しています。"}
+    return {"status": "ok", "message": "相談支援管理システム APIは正常に動作しています。"}
+
+@app.get("/api/config")
+async def get_config():
+    """フロントエンドが参照する機能フラグ。"""
+    return {"enable_ai": ENABLE_AI, "enable_transcription": ENABLE_TRANSCRIPTION}
