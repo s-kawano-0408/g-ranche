@@ -1,317 +1,46 @@
 # ぐ・らんちぇ 管理システム
 
 ぐ・らんちぇ（相談支援事業所）の業務管理Webアプリ。
+詳細ドキュメントは `docs/` フォルダを参照。
 
-## 起動方法
-
-### 一括起動（推奨）
+## 起動
 ```bash
-cd /Users/kawano/project/g-ranche
 bash start.sh
 ```
 - バックエンド: http://localhost:8000
 - フロントエンド: http://localhost:3000
-- API ドキュメント: http://localhost:8000/docs
 - 停止: `Ctrl+C`
 
-### 個別起動
-
-#### バックエンド
+## 個別起動
 ```bash
-cd /Users/kawano/project/g-ranche/backend
-~/.local/bin/uv sync                          # 依存パッケージ同期
-~/.local/bin/uv run python seed.py            # サンプルデータ投入（初回のみ）
+# バックエンド
+cd backend
 ~/.local/bin/uv run python -m uvicorn main:app --reload --port 8000
-```
-※ `uv run uvicorn ...` はuvicornバイナリが見つからずエラーになるため、必ず `python -m uvicorn` を使うこと
 
-#### フロントエンド
-```bash
-cd /Users/kawano/project/g-ranche/frontend
-npm install                                   # 依存パッケージインストール（初回のみ）
+# フロントエンド
+cd frontend
 npm run dev
 ```
 
-#### 初回セットアップ
-```bash
-cd /Users/kawano/project/g-ranche/backend
-cat > .env << 'EOF'
-ANTHROPIC_API_KEY=sk-ant-...
-DATABASE_URL=postgresql://...          # Supabase接続文字列
-EOF
-```
-
-### トラブルシューティング
-- **ポートが既に使用中**: `lsof -ti:3000,8000 | xargs kill -9` で既存プロセスを停止
-- **Next.js ロックエラー**: `rm -f frontend/.next/dev/lock` でロックファイルを削除
+## トラブルシューティング
+- **ポートが使用中**: `lsof -ti:3000,8000 | xargs kill -9`
+- **Next.js ロックエラー**: `rm -f frontend/.next/dev/lock`
 - **uv が見つからない**: フルパス `~/.local/bin/uv` を使う
 
-## 技術スタック
-- **Backend**: Python + FastAPI + SQLAlchemy + PostgreSQL（Supabase）
-- **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS 4 + shadcn/ui + SWR
-- **AI**: Anthropic Python SDK (claude-sonnet-4-6) + Streaming + Tool Use + Prompt Caching
-- **DB**: Supabase PostgreSQL（Tokyo リージョン）
-- **デプロイ**: Docker Compose + Caddy（自動HTTPS）on Oracle Cloud VM
-- **レスポンシブ対応**: モバイル・タブレット・デスクトップ対応済み（Tailwind ブレイクポイント: sm/lg）
+## 重要な注意事項
+- `uv run uvicorn ...` はエラーになる。必ず `python -m uvicorn` を使うこと
+- API の末尾スラッシュはバックエンドのルート定義に厳密に合わせること（`docs/02_backend_guide.md` 参照）
+- DB は全環境で Supabase PostgreSQL（`DATABASE_URL` 環境変数で接続）
+- 論理削除: `users` 以外は `deleted_at` カラムで管理（物理削除しない）
+- `ENABLE_AI=true` / `ENABLE_TRANSCRIPTION=true` を `.env` に設定しないと AI・Excel転記のAPIが登録されない（本番はデフォルト `false`）
 
-## レスポンシブデザイン
-- Sidebar: デスクトップ固定表示 / モバイルはハンバーガーメニュー + ドロワー（`lg:` で切替）
-- Header: ハンバーガーボタン用の左余白（`pl-10 lg:pl-0`）
-- 全ページ: `p-4 sm:p-8` のレスポンシブパディング
-- カレンダー: モバイルではセル縮小 + 件数バッジ表示、デスクトップではスケジュール名表示
-- AIページ: ドキュメントパネルはデスクトップのみ表示（`hidden lg:flex`）
-- 月間業務: ヘッダー・フィルターは `flex-wrap` で折り返し対応
-
-## プロジェクト構成
-```
-g-ranche/
-├── start.sh                 # 一括起動スクリプト（ローカル開発用）
-├── docker-compose.yml       # 本番デプロイ用（4サービス: db, backend, frontend, caddy）
-├── Caddyfile                # リバースプロキシ + 自動HTTPS設定（Oracle用）
-├── fly.toml                 # Fly.ioデプロイ設定
-├── Dockerfile.fly           # Fly.io用Dockerfile（Python + Node.js + Caddy）
-├── Caddyfile.fly            # Fly.io用Caddy設定（:8080でリバースプロキシ）
-├── start-fly.sh             # Fly.io用起動スクリプト
-├── .env.production          # 本番環境変数テンプレート（※Git管理外）
-├── backend/
-│   ├── main.py              # FastAPI エントリポイント
-│   ├── database.py          # DB接続セットアップ（PostgreSQL専用）
-│   ├── Dockerfile           # バックエンドのDockerイメージ定義
-│   ├── seed.py              # サンプルデータ（スタッフ2名・利用者200名・計画・記録・スケジュール）
-│   ├── models/              # SQLAlchemy テーブル定義
-│   │   ├── client.py        # 利用者
-│   │   ├── staff.py         # スタッフ
-│   │   ├── support_plan.py  # 支援計画
-│   │   ├── case_record.py   # 支援記録
-│   │   ├── schedule.py      # スケジュール
-│   │   ├── monthly_task.py  # 月間業務タスク
-│   │   └── ai_conversation.py # AI会話履歴
-│   ├── schemas/             # Pydantic スキーマ
-│   ├── routers/             # API ルーター
-│   │   ├── clients.py       # 利用者CRUD
-│   │   ├── support_plans.py # 支援計画
-│   │   ├── case_records.py  # 支援記録
-│   │   ├── schedules.py     # スケジュール
-│   │   ├── monthly_tasks.py # 月間業務管理
-│   │   └── ai.py            # AIチャット・文書生成
-│   ├── ai/                  # AI ロジック
-│   │   ├── client.py        # Anthropic クライアント + ストリーミング + Tool Use ループ
-│   │   ├── tools.py         # 8つのツール定義
-│   │   ├── tool_executor.py # ツール実行（DB操作）
-│   │   └── system_prompt.py # システムプロンプト（Prompt Caching対応）
-│   └── transcription/       # Excel転記
-│       ├── ocr.py           # Claude Vision APIでOCR + 構造化
-│       ├── cell_mappings.py # セルマッピング定義 + 抽出プロンプト
-│       └── excel_writer.py  # openpyxlでテンプレートに書き込み
-└── frontend/
-    ├── Dockerfile           # フロントエンドのDockerイメージ定義
-    └── src/
-        ├── app/             # Next.js App Router ページ
-        │   ├── dashboard/   # ダッシュボード
-        │   ├── clients/     # 利用者管理（一覧・詳細）
-        │   ├── monthly-tasks/ # 月間業務管理
-        │   ├── schedules/   # スケジュール
-        │   ├── records/     # 支援記録
-        │   ├── ai/          # AIアシスタント
-        │   └── transcription/ # Excel転記
-        ├── middleware.ts     # CSPヘッダー生成（unsafe-inline/unsafe-eval を許容する緩めの設定）
-        ├── contexts/        # Reactコンテキスト
-        │   └── AuthContext.tsx      # 認証状態管理（Cookie + 自動ロック）
-        ├── components/      # UIコンポーネント
-        │   ├── clients/ClientCombobox.tsx # 検索可能な利用者選択（共通コンポーネント）
-        │   └── layout/      # Sidebar, Header
-        ├── hooks/           # カスタムフック
-        │   ├── useClients.ts       # 利用者データ（SWR）
-        │   ├── useRecords.ts       # 支援記録データ（SWR）
-        │   ├── useSchedules.ts     # スケジュールデータ（SWR）
-        │   ├── useAIStream.ts      # AIストリーミング
-        │   └── useAutoLock.ts      # 自動ロック（30分無操作でログアウト）
-        ├── lib/             # ユーティリティ
-        │   ├── api.ts              # APIクライアント（credentials: include）
-        │   └── fetcher.ts          # SWR用fetcher関数
-        └── types/           # TypeScript型定義
-```
-
-## API エンドポイント
-- `GET/POST /api/clients` - 利用者一覧（フリガナ順でソート）・新規作成
-- `GET/PUT/DELETE /api/clients/{id}` - 利用者詳細・更新（管理者のみ）・削除
-- `GET/POST /api/support-plans` - 支援計画
-- `GET/POST/PUT/DELETE /api/records` - 支援記録
-- `GET/POST/PUT /api/schedules` - スケジュール
-- `GET /api/schedules/today` - 本日の予定
-- `GET /api/monthly-tasks` - 月間業務タスク一覧（year, month, client_id でフィルタ可）
-- `PUT /api/monthly-tasks` - 月間業務タスク登録・更新（upsert）
-- `DELETE /api/monthly-tasks` - 月間業務タスク削除（client_id, year, month 指定）
-- `GET /api/clients/stats` - 利用者統計（active な総数・児・者）
-- `POST /api/auth/login` - ログイン（HttpOnly Cookie をセット、5/分・30/時のレートリミット）
-- `POST /api/auth/logout` - ログアウト（Cookie を削除）
-- `GET /api/auth/me` - ログイン中のユーザー情報取得
-- `GET /api/auth/users` - ユーザー一覧（管理者のみ）
-- `PUT /api/auth/users/{id}/password` - パスワード変更（管理者のみ）
-- `PUT /api/auth/users/{id}/deactivate` - アカウント無効化（管理者のみ）
-- `POST /api/ai/chat` - AIチャット（SSEストリーミング + Tool Use）
-- `POST /api/ai/generate-plan` - 支援計画書生成
-- `POST /api/ai/summarize-record` - 支援記録要約
-- `POST /api/ai/generate-report` - モニタリング報告書生成
-- `POST /api/transcription/ocr` - 画像OCR → フィールド抽出
-- `POST /api/transcription/generate` - フィールドデータ → Excel生成・ダウンロード
-
-## 月間業務管理
-スプレッドシート風の画面で、利用者ごとに月別のタスクを管理する。
-- 行: 利用者（フリガナ・名前）、左側固定列で横スクロール対応
-- 列: 12ヶ月分（年の切り替え可能）
-- セル: ドロップダウンで選択（モニタ / 更新 / 新規 / 更+モニ / 新+モニ / その他 / 最終モニタ）
-- ヘッダー: 月ごとの件数を自動集計
-- フィルター: ステータス（利用中/利用終了/すべて、デフォルト: 利用中）、児/者、五十音
-- 年表示クリックで今年に戻る
-- DB: `monthly_tasks` テーブル（client_id + year + month でユニーク制約）
-- タスク種別ごとに色分け表示
-
-## パフォーマンス最適化
-本アプリでは「取りすぎ・呼びすぎ・描きすぎ」を排除することで体感速度を改善している。
-
-### データ取得の最適化
-- **SWRキャッシュ統一**: 全ページのデータ取得をSWRフックに統一。2回目以降のページ遷移はキャッシュから即表示
-- **スケジュール日付制限**: 全期間一括取得 → 表示月±1ヶ月だけ取得（`useSchedules` に `start_date`/`end_date` を渡す）
-- **stats API最適化**: ダッシュボード用の統計APIを軽量化
-
-### ネットワークの無駄を排除
-- **308リダイレクト解消**: FastAPIミドルウェアで末尾スラッシュを自動除去 + Next.js `skipTrailingSlashRedirect` で、全リクエストが2回飛んでいた問題を解消
-- **SWR deduping**: 30秒以内の同一リクエストは重複排除（`dedupingInterval: 30000`）
-
-### レンダリング最適化（月間業務管理）
-- **React.memo**: `TaskCell`/`ClientRow` コンポーネントをメモ化。2,400セル中、変更があったセルだけ再描画
-- **useMemo**: `filteredClients`（フィルタ+ソート結果）、`taskMap`（タスクルックアップ）をメモ化
-- **O(1)ルックアップ**: `tasks.find()` の O(n) → `Map.get()` の O(1) に改善
-- **useCallback**: `handleTaskChange` をメモ化し、React.memo の無効化を防止
-
-## Excel転記機能
-書類の写真を読み取り、Excelテンプレートに転記する機能。
-- **OCR**: Claude Vision API（claude-sonnet-4-6）で画像から直接フィールド抽出・構造化（1回のAPI呼び出しで完結）
-- **Excel書き込み**: openpyxlでテンプレートの書式を保持したまま書き込み
-- **対応シート**: 別紙１、1_1計画案（Phase 1）
-- **テンプレート**: `backend/templates/template.xlsx`（事業所名が含まれるためGit管理外。Fly.ioでは Volume `/data/template.xlsx` 優先、なければローカルにフォールバック）
-- **プロキシ**: Next.js Route Handlerで90秒タイムアウト設定（長時間OCR処理対応）
-- **セキュリティ**: Anthropic APIはデータをモデル訓練に使用しない（要配慮個人情報の保護）
-
-## Claude AI 機能
-- **Tool Use**: 8ツール（利用者検索・スケジュール作成・記録作成など）
-- **Streaming**: SSEによるリアルタイム表示
-- **Prompt Caching**: システムプロンプトをキャッシュしてコスト削減
-- **Multi-turn**: `ai_conversations`テーブルで会話履歴を永続化
-
-## データベース (PostgreSQL on Supabase)
-- `users` 以外のテーブルは `deleted_at` カラムによる**論理削除**（DELETE APIは `deleted_at` を設定、GETは `deleted_at IS NULL` でフィルタ）
-- `users` - ログインアカウント（email, password_hash, name, role, is_active）。認証はこのテーブルを参照
-- `staffs` - 業務上のスタッフ情報（担当者一覧）。`users` とは別物
-- `clients` - 利用者情報
-  - family_name, given_name（姓・名）必須
-  - family_name_kana, given_name_kana（フリガナ）必須
-  - birth_date（生年月日、Date型）必須
-  - certificate_number（受給者証番号）必須
-  - gender（性別）任意
-  - client_type（"児"/"者"）必須
-  - staff_id, status（active/inactive）, end_date（Date型）, notes, deleted_at
-- `support_plans` - 個別支援計画書
-- `case_records` - 支援記録
-- `schedules` - スケジュール（client_id は nullable）
-- `monthly_tasks` - 月間業務タスク（client_id + year + month でユニーク制約、task_type）
-- `ai_conversations` - AIチャット履歴（session_id、JSON messages）
-
-## 認証・セキュリティ
-
-### 認証方式
-- JWT（JSON Web Token）を **HttpOnly Cookie** で管理
-- ログイン時にサーバーが Cookie をセット → ブラウザが自動送信
-- JavaScript から Cookie にアクセスできない（XSS でトークン窃取不可）
-- Cookie 設定: `httponly=True`, `samesite=lax`, `secure=環境依存`（本番は `True`）
-- トークン有効期限: 8時間（残り2時間以下になったら次のリクエストで自動更新）
-- 認証対象テーブルは `users`（email + bcrypt ハッシュ化されたパスワード）
-- ログインAPIは `slowapi` で 5回/分・30回/時 にレート制限
-
-### セキュリティヘッダー
-- **CSP**（`frontend/src/middleware.ts` で設定。現状は緩めの固定値）:
-  - `default-src 'self'`
-  - `script-src 'self' 'unsafe-inline' 'unsafe-eval'`（Next.js本番ビルドとの互換性のため）
-  - `style-src 'self' 'unsafe-inline'`
-  - `img-src 'self' data: blob:` / `font-src 'self'` / `connect-src 'self'`
-  - Oracle 移行時に nonce ベースへ戻す想定
-- **X-Frame-Options**: DENY（クリックジャッキング防止、`next.config.ts` で設定）
-- **X-Content-Type-Options**: nosniff
-- **Referrer-Policy**: strict-origin-when-cross-origin
-- **Strict-Transport-Security**: max-age=31536000; includeSubDomains
-
-### 自動ロック
-- 30分間操作がなければ自動ログアウト（`useAutoLock` フック）
-- マウス/キーボード/タッチ操作でタイマーリセット
-
-### CORS
-- `ALLOWED_ORIGINS` 環境変数で制御（デフォルト: `http://localhost:3000`）
-- `credentials: include` を使うため、ワイルドカード `*` は使用不可
-
-### 監査ログ
-- `main.py` のミドルウェアで `/api/` 配下のリクエストを `audit` ロガーに記録
-- 形式: `METHOD PATH user=<email> ip=<client_ip> status=<code>`
-- ユーザー名はCookieのJWTから抽出（未認証は `anonymous`）
-
-### 既知の制約
-- 本番デプロイ時は `ENVIRONMENT=production` を設定すること（Cookie の `secure` フラグ）
-- `SECRET_KEY` 環境変数は本番では必須。未設定だと起動時にエラー
-
-## デプロイ
-
-### デモ環境（Fly.io）
-- URL: https://g-ranche.fly.dev/
-- 構成: 単一コンテナ（Python + Node.js + Caddy）on Fly.io
-- DB: Supabase PostgreSQL（Tokyo リージョン、`DATABASE_URL` は `fly secrets` で管理）
-- リバースプロキシ: Caddy（`:8080` → `/api/*` はバックエンド、それ以外はNext.js）
-
-#### デプロイ手順
-```bash
-cd /Users/kawano/project/g-ranche
-fly deploy                    # 通常デプロイ
-fly deploy --no-cache         # キャッシュなし再ビルド（フロント変更時に推奨）
-```
-
-#### DB再作成（seedデータ再投入）
-Supabase ダッシュボードの SQL Editor で全テーブルを TRUNCATE するか、
-テーブルを DROP して再デプロイ（起動時にテーブルが空なら自動で seed.py が実行される）
-
-#### 関連ファイル
-- `fly.toml` — Fly.io設定（リージョン: nrt、VM: shared-cpu-1x 512MB）
-- `Dockerfile.fly` — マルチステージビルド（Node.js 20 + Python 3.11 + Caddy）
-- `Caddyfile.fly` — リバースプロキシ設定
-- `start-fly.sh` — コンテナ起動スクリプト（backend + frontend + Caddy）
-
-#### API URL設計の注意
-- `redirect_slashes=False`（`main.py`）で、FastAPIの自動リダイレクトを無効化
-- フロントのAPI URLはバックエンドのルート定義に正確に合わせること
-  - コレクション（`"/"`定義）: `/api/clients/`（末尾スラッシュあり）
-  - 個別エンドポイント（`"/login"`等）: `/api/auth/login`（末尾スラッシュなし）
-- 理由: Caddy経由だとFastAPIのリダイレクトが`http://`で生成され、CSPにブロックされるため
-
-### 本番環境（Oracle Cloud — 予定）
-- Oracle Cloud VM（ARM, 1 OCPU, 6GB RAM）上で Docker Compose を使用
-- Caddy がリバースプロキシ + 自動HTTPS（Let's Encrypt）
-- PostgreSQL でデータ永続化（`./pgdata/`）
-
-#### デプロイ手順
-```bash
-# VM上で実行
-git pull
-docker compose --env-file .env.production up -d --build
-```
-
-### Gitブランチ戦略
-- `main` — 本番（デプロイ対象）
-- `develop` — 開発（ローカルで作業するブランチ）
-- 開発完了 → `main` にマージ → デプロイ
-
-## 注意事項
-- `.env`ファイルに`ANTHROPIC_API_KEY`と`DATABASE_URL`を設定すること
-- DB は全環境で Supabase PostgreSQL を使用（`DATABASE_URL` 環境変数で接続）
-- CORSは環境変数 `ALLOWED_ORIGINS` で制御（デフォルト: `http://localhost:3000`、ワイルドカード `*` は不可）
-- 本番環境では `ENVIRONMENT=production` を設定（Cookie の secure フラグ用）
-- `seed.py` は200名の利用者 + 支援計画 + 支援記録 + スケジュール + 月間業務を生成
-- `.env.production` と `pgdata/` は `.gitignore` でGit管理外
-- Excel転記テンプレート（`backend/templates/*.xlsx`）はGit管理外。デプロイ先には手動配置
+## ドキュメント（`docs/` フォルダ）
+- `00_index.md` — ドキュメント一覧・読み方ガイド
+- `01_architecture.md` — システム設計・データの流れ・技術スタック
+- `02_backend_guide.md` — バックエンド実装・APIエンドポイント・修正パターン
+- `03_frontend_guide.md` — フロントエンド実装・コンポーネント・修正パターン
+- `04_ai_guide.md` — Claude AI統合・ツール追加方法
+- `05_known_issues.md` — 既知の課題リスト
+- `06_git_guide.md` — Gitブランチ戦略・デプロイ手順
+- `07_security_decisions.md` — 認証・JWT・セキュリティ設計
+- `08_performance_optimization.md` — パフォーマンス最適化の記録

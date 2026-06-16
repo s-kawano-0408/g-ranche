@@ -83,10 +83,22 @@ class ToolExecutor:
         except Exception as e:
             return {"error": str(e)}
 
-    def _search_clients(self, client_type=None, status="active"):
-        stmt = select(Client)
+    def _search_clients(self, name=None, client_type=None, status="active"):
+        stmt = select(Client).where(Client.deleted_at.is_(None))  # 論理削除済みを除外
+        if name:
+            pattern = f"%{name}%"
+            stmt = stmt.where(
+                or_(
+                    Client.family_name.ilike(pattern),
+                    Client.given_name.ilike(pattern),
+                    Client.family_name_kana.ilike(pattern),
+                    Client.given_name_kana.ilike(pattern),
+                )
+            )
         if client_type:
             stmt = stmt.where(Client.client_type == client_type)
+        if status:
+            stmt = stmt.where(Client.status == status)
         clients = self.db.execute(stmt).scalars().all()
         return {
             "clients": [self._client_to_dict(c) for c in clients],
@@ -261,7 +273,30 @@ return [
 
 ---
 
-## 6. 文書生成エンドポイント
+## 6. 環境変数フラグによるオン/オフ制御
+
+AI機能とExcel転記機能は環境変数フラグで有効/無効を切り替えられます（`main.py`）。
+
+```python
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "false").lower() in ("1", "true", "yes")
+
+ENABLE_AI = _env_flag("ENABLE_AI")
+ENABLE_TRANSCRIPTION = _env_flag("ENABLE_TRANSCRIPTION")
+
+if ENABLE_AI:
+    app.include_router(ai.router, prefix="/api/ai", ...)
+if ENABLE_TRANSCRIPTION:
+    app.include_router(transcription.router, prefix="/api/transcription", ...)
+```
+
+- フラグが `false`（デフォルト）のとき、該当するAPIルーターが登録されない → エンドポイントが存在しない状態になる
+- ローカル開発: `.env` に `ENABLE_AI=true` / `ENABLE_TRANSCRIPTION=true` を追加
+- 本番（Fly.io）: `fly secrets set ENABLE_AI=false` のように管理
+
+---
+
+## 7. 文書生成エンドポイント
 
 すべて `routers/ai.py` 内で実装。非ストリーミングで動作し、`get_current_user` で認証必須。
 
@@ -302,7 +337,7 @@ Markdown形式で作成してください。"""
 
 ---
 
-## 7. 会話履歴の管理
+## 8. 会話履歴の管理
 
 会話履歴は `ai_conversations` テーブルの `messages` カラム（JSON）に保存されます。
 
@@ -327,7 +362,7 @@ messages = [
 
 ---
 
-## 8. Excel 転記での Vision API 利用
+## 9. Excel 転記での Vision API 利用
 
 OCR は `transcription/ocr.py` で実装され、`/api/transcription/ocr` から呼ばれます。
 
@@ -339,7 +374,7 @@ OCR は `transcription/ocr.py` で実装され、`/api/transcription/ocr` から
 
 ---
 
-## 9. APIコストを抑えるヒント
+## 10. APIコストを抑えるヒント
 
 1. **Prompt Caching** — すでに実装済み。システムプロンプトをキャッシュ
 2. **max_tokens** — 必要以上に大きくしない（チャット/計画書/報告書は 4096、要約は 512）
