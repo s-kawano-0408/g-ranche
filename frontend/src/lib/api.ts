@@ -10,7 +10,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
-    credentials: "include",  // Cookieを自動送信
+    credentials: "include", // Cookieを自動送信
     headers: {
       "Content-Type": "application/json",
       ...options?.headers,
@@ -46,7 +46,9 @@ export async function getClient(id: number): Promise<Client> {
   return fetchAPI<Client>(`/api/clients/${id}`);
 }
 
-export async function createClient(data: Record<string, unknown>): Promise<Client> {
+export async function createClient(
+  data: Record<string, unknown>,
+): Promise<Client> {
   return fetchAPI<Client>("/api/clients", {
     method: "POST",
     body: JSON.stringify(data),
@@ -282,11 +284,16 @@ export async function generateExcel(
 }
 
 // Users (admin)
-export async function getUsers(): Promise<{ id: number; email: string; name: string; role: string }[]> {
+export async function getUsers(): Promise<
+  { id: number; email: string; name: string; role: string }[]
+> {
   return fetchAPI("/api/auth/users");
 }
 
-export async function changePassword(userId: number, newPassword: string): Promise<{ message: string }> {
+export async function changePassword(
+  userId: number,
+  newPassword: string,
+): Promise<{ message: string }> {
   return fetchAPI(`/api/auth/users/${userId}/password`, {
     method: "PUT",
     body: JSON.stringify({ new_password: newPassword }),
@@ -297,13 +304,19 @@ export async function login(
   email: string,
   password: string,
 ): Promise<{ message: string }> {
-  return fetchAPI<{ message: string }>(
-    "/api/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    },
-  );
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(error || `API error: ${res.status}`);
+  }
+
+  return res.json();
 }
 
 export async function logout(): Promise<{ message: string }> {
